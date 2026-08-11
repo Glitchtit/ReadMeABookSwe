@@ -104,7 +104,13 @@ jobs:
 
       - name: Send Discord notification
         if: github.event_name != 'pull_request' && success()
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "WEBHOOK_URL not configured, skipping Discord notification"
+            exit 0
+          fi
           curl -H "Content-Type: application/json" \
             -X POST \
             -d '{
@@ -140,4 +146,4 @@ jobs:
                 "timestamp": "${{ steps.version.outputs.build_date }}"
               }]
             }' \
-            ${{ secrets.WEBHOOK_URL }}
+            "$WEBHOOK_URL"
