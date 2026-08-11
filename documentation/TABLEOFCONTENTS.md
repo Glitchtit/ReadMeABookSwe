@@ -49,6 +49,10 @@
 - **Dedup & works table (cross-ASIN identity)** → [integrations/audible.md](integrations/audible.md#dedup--works-table)
 - **Multi-narrator capture in HTML scrapers** → [integrations/audible.md](integrations/audible.md#narrator-capture-in-html-scrapers)
 
+## Storytel Integration (Swedish, this fork)
+- **Swedish search/metadata via Storytel** → [integrations/storytel.md](integrations/storytel.md)
+- **Pseudo-ASINs, ASIN-less matching fallback** → [integrations/storytel.md](integrations/storytel.md)
+
 ## E-book Support (First-Class)
 - **First-class ebook requests, separate tracking** → [integrations/ebook-sidecar.md](integrations/ebook-sidecar.md)
 - **Multi-source ebook downloads (Anna's Archive + Indexer Search)** → [integrations/ebook-sidecar.md](integrations/ebook-sidecar.md)

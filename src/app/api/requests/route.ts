@@ -24,6 +24,7 @@ const CreateRequestSchema = z.object({
     durationMinutes: z.number().optional(),
     releaseDate: z.string().optional(),
     rating: z.number().nullable().optional(),
+    isbn: z.string().optional(),
   }),
 });
 
@@ -53,6 +54,8 @@ export async function POST(request: NextRequest) {
         narrator: audiobook.narrator,
         description: audiobook.description,
         coverArtUrl: audiobook.coverArtUrl,
+        isbn: audiobook.isbn,
+        durationMinutes: audiobook.durationMinutes,
       }, { skipAutoSearch, bypassIgnore: true });
 
       if (!result.success) {

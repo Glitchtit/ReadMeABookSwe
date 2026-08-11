@@ -10,7 +10,8 @@ import { requireAuth, AuthenticatedRequest } from '@/lib/middleware/auth';
 import { prisma } from '@/lib/db';
 import { getJobQueueService } from '@/lib/services/job-queue.service';
 import { findPlexMatch } from '@/lib/utils/audiobook-matcher';
-import { getAudibleService } from '@/lib/integrations/audible.service';
+import { getDetailsByAsin } from '@/lib/services/metadata-provider';
+import { isStorytelAsin } from '@/lib/utils/storytel-ids';
 import { z } from 'zod';
 import { RMABLogger } from '@/lib/utils/logger';
 
@@ -27,6 +28,7 @@ const RequestWithTorrentSchema = z.object({
     durationMinutes: z.number().optional(),
     releaseDate: z.string().optional(),
     rating: z.number().nullable().optional(),
+    isbn: z.string().optional(),
   }),
   torrent: z.object({
     guid: z.string(),
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
         title: audiobook.title,
         author: audiobook.author,
         narrator: audiobook.narrator,
+        isbn: audiobook.isbn,
       });
 
       if (plexMatch) {
@@ -117,13 +120,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Fetch full details from Audnexus to get releaseDate, year, and series
+      // Fetch full details from the metadata source (Audnexus for Audible
+      // ASINs, Storytel for ST pseudo-ASINs) to get releaseDate, year, series
       let year: number | undefined;
       let series: string | undefined;
       let seriesPart: string | undefined;
       try {
-        const audibleService = getAudibleService();
-        const audnexusData = await audibleService.getAudiobookDetails(audiobook.asin);
+        const audnexusData = await getDetailsByAsin(audiobook.asin);
 
         if (audnexusData?.releaseDate) {
           try {
@@ -168,6 +171,9 @@ export async function POST(request: NextRequest) {
             year,
             series,
             seriesPart,
+            metadataSource: isStorytelAsin(audiobook.asin) ? 'storytel' : 'audible',
+            isbn: audiobook.isbn,
+            durationMinutes: audiobook.durationMinutes,
             status: 'requested',
           },
         });

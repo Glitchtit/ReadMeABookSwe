@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAudibleService } from '@/lib/integrations/audible.service';
+import { getDetailsByAsin } from '@/lib/services/metadata-provider';
 import { RMABLogger } from '@/lib/utils/logger';
 
 const logger = RMABLogger.create('API.Audiobooks.Details');
@@ -31,7 +32,7 @@ export async function GET(
     }
 
     const audibleService = getAudibleService();
-    const audiobook = await audibleService.getAudiobookDetails(asin);
+    const audiobook = await getDetailsByAsin(asin);
 
     if (!audiobook) {
       return NextResponse.json(

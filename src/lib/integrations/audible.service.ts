@@ -63,6 +63,11 @@ export interface AudibleAudiobook {
   language?: string;
   formatType?: string;
   publisherName?: string;
+  /** Metadata source; absent means Audible. Storytel books use a pseudo-ASIN (see storytel-ids.ts). */
+  source?: 'audible' | 'storytel';
+  isbn?: string;
+  /** Product page on the source's store (used instead of the Audible /pd link). */
+  storeUrl?: string;
 }
 
 export interface AudibleSearchResult {

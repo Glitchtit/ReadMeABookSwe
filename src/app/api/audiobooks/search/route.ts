@@ -4,7 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAudibleService } from '@/lib/integrations/audible.service';
+import { getAudibleService, type AudibleAudiobook } from '@/lib/integrations/audible.service';
+import { getStorytelService } from '@/lib/integrations/storytel.service';
 import { enrichAudiobooksWithMatches } from '@/lib/utils/audiobook-matcher';
 import { deduplicateAndCollectGroups } from '@/lib/utils/deduplicate-audiobooks';
 import { persistDedupGroups, collapseByExistingWorks } from '@/lib/services/works.service';
@@ -37,6 +38,22 @@ export async function GET(request: NextRequest) {
     const audibleService = getAudibleService();
     const results = await audibleService.search(query, page);
 
+    // Sweden region: supplement audible.de results with Storytel, which has
+    // far better Swedish coverage. Storytel's API has no pagination, so its
+    // results are appended on page 1 only; duplicates (same title+author on
+    // both stores) keep the Audible entry, which carries a real ASIN.
+    let combinedResults: AudibleAudiobook[] = results.results;
+    if (audibleService.getRegion() === 'se' && page === 1) {
+      const storytelResults = await getStorytelService().search(query);
+      if (storytelResults.length > 0) {
+        const normKey = (b: AudibleAudiobook) =>
+          `${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`;
+        const seen = new Set(combinedResults.map(normKey));
+        const additions = storytelResults.filter((b) => !seen.has(normKey(b)));
+        combinedResults = [...combinedResults, ...additions];
+      }
+    }
+
     // Get current user (optional — JWT or API token — for request-status enrichment)
     const currentUser = await getCurrentUserAsync(request);
     const userId = currentUser?.sub || undefined;
@@ -44,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Two-pass dedup: local title/narrator/duration matching first, then collapse
     // any remaining duplicates that the works table already knows are the same book
     // (handles cases where source metadata diverges across paths or pages).
-    const { books: dedupedResults, groups } = deduplicateAndCollectGroups(results.results);
+    const { books: dedupedResults, groups } = deduplicateAndCollectGroups(combinedResults);
 
     if (groups.length > 0) {
       persistDedupGroups(groups).catch(() => {});

@@ -7,6 +7,7 @@
 
 import { prisma } from '../db';
 import { RMABLogger } from '../utils/logger';
+import { isStorytelAsin } from '../utils/storytel-ids';
 import { getLibraryService } from '../services/library';
 import { getThumbnailCacheService } from '../services/thumbnail-cache.service';
 
@@ -216,7 +217,10 @@ export async function processPlexRecentlyAddedCheck(payload: PlexRecentlyAddedPa
                 },
               });
 
-              if (matchedAudiobook?.audibleAsin) {
+              // Storytel pseudo-ASINs are unknown to ABS's Audible provider —
+              // passing one would force a failed/incorrect match, so let ABS
+              // fall back to its own fuzzy matching instead.
+              if (matchedAudiobook?.audibleAsin && !isStorytelAsin(matchedAudiobook.audibleAsin)) {
                 matchedAsin = matchedAudiobook.audibleAsin;
                 logger.info(
                   `File hash match found for "${item.title}" → ASIN: ${matchedAsin} (from "${matchedAudiobook.title}")`
@@ -281,6 +285,7 @@ export async function processPlexRecentlyAddedCheck(payload: PlexRecentlyAddedPa
             title: audiobook.title,
             author: audiobook.author,
             narrator: audiobook.narrator || undefined,
+            isbn: audiobook.isbn || undefined,
           });
 
           if (match) {

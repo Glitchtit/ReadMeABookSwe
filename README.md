@@ -29,6 +29,7 @@
 This is a fork of [kikootwo/ReadMeABook](https://github.com/kikootwo/ReadMeABook) with first-class support for **Swedish-language audiobooks**:
 
 - New **Sweden (Svenska)** Audible region in the setup wizard and admin settings. There is no audible.se marketplace (it redirects to audible.de), so the region uses the audible.de catalog filtered to Swedish-language titles.
+- **Storytel as a supplementary metadata source**: searches in the Sweden region also query Storytel's catalog, which carries most Swedish audiobooks that never reach Audible (Läckberg, and most of Swedish publishing). Storytel books can be requested, downloaded, organized, and matched into your library like any other.
 - Search, popular, and new-release discovery return Swedish audiobooks only.
 - Swedish metadata scraping (authors, narrators, runtimes, ratings) and Swedish-aware torrent/NZB matching (stop words, "av"-style release naming, Swedish role words like *uppläsare*).
 - E-book sidecar searches use the Swedish (`sv`) language filter.

@@ -9,6 +9,7 @@
 import { prisma } from '@/lib/db';
 import { LibraryItem } from '@/lib/services/library';
 import { getSiblingAsins } from '@/lib/services/works.service';
+import { isStorytelAsin } from './storytel-ids';
 import { RMABLogger } from './logger';
 
 // Module-level logger
@@ -19,6 +20,7 @@ export interface AudiobookMatchInput {
   title: string;
   author: string;
   narrator?: string;
+  isbn?: string;
 }
 
 export interface AudiobookMatchResult {
@@ -93,8 +95,25 @@ export async function findPlexMatch(
     result: null,
   };
 
-  // If no ASIN matches found, log and return null
+  // If no ASIN matches found, log and return null.
+  // Storytel pseudo-ASINs never appear in library metadata, so those books
+  // fall back to ISBN / normalized title+author matching instead.
   if (plexBooks.length === 0) {
+    if (isStorytelAsin(audiobook.asin)) {
+      const fallback = await findStorytelFallbackMatch(audiobook);
+      if (fallback) {
+        matchResult.matchType = fallback.matchType;
+        matchResult.matched = true;
+        matchResult.result = {
+          plexGuid: fallback.match.plexGuid,
+          plexTitle: fallback.match.title,
+          plexAuthor: fallback.match.author,
+          confidence: fallback.matchType === 'storytel_isbn' ? 100 : 90,
+        };
+        logger.debug('Matcher result', { MATCHER: matchResult });
+        return fallback.match;
+      }
+    }
     matchResult.matchType = 'no_asin_match';
     logger.debug('Matcher result', { MATCHER: matchResult });
     return null;
@@ -136,6 +155,60 @@ export async function findPlexMatch(
   // No exact match found (shouldn't happen given the query, but defensive)
   matchResult.matchType = 'no_exact_match';
   logger.debug('Matcher result', { MATCHER: matchResult });
+  return null;
+}
+
+/** Strip diacritics/punctuation and collapse whitespace for comparison. */
+function normalizeForLibraryMatch(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** True when every word of the shorter name appears in the longer one (handles "Last, First" ordering). */
+function authorsOverlap(a: string, b: string): boolean {
+  const wordsA = normalizeForLibraryMatch(a).split(' ').filter(Boolean);
+  const wordsB = normalizeForLibraryMatch(b).split(' ').filter(Boolean);
+  if (wordsA.length === 0 || wordsB.length === 0) return false;
+  const [shorter, longer] =
+    wordsA.length <= wordsB.length ? [wordsA, new Set(wordsB)] : [wordsB, new Set(wordsA)];
+  return shorter.every((w) => longer.has(w));
+}
+
+/**
+ * Fallback matching for Storytel books (no real ASIN in library metadata):
+ * 1. ISBN — exact match against plexLibrary.isbn (populated by Audiobookshelf scans)
+ * 2. Title — case-insensitive exact title plus author word-overlap check
+ */
+async function findStorytelFallbackMatch(
+  audiobook: AudiobookMatchInput
+): Promise<{ match: AudiobookMatchResult; matchType: 'storytel_isbn' | 'storytel_title_author' } | null> {
+  if (audiobook.isbn) {
+    const isbnMatch = await prisma.plexLibrary.findFirst({
+      where: { isbn: audiobook.isbn },
+      select: { plexGuid: true, plexRatingKey: true, title: true, author: true },
+    });
+    if (isbnMatch) return { match: isbnMatch, matchType: 'storytel_isbn' };
+  }
+
+  if (!audiobook.title || !audiobook.author) return null;
+
+  const candidates = await prisma.plexLibrary.findMany({
+    where: { title: { equals: audiobook.title, mode: 'insensitive' } },
+    select: { plexGuid: true, plexRatingKey: true, title: true, author: true },
+    take: 25,
+  });
+
+  for (const candidate of candidates) {
+    if (candidate.author && authorsOverlap(candidate.author, audiobook.author)) {
+      return { match: candidate, matchType: 'storytel_title_author' };
+    }
+  }
+
   return null;
 }
 

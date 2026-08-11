@@ -11,7 +11,8 @@ import { prisma } from '@/lib/db';
 import { getJobQueueService } from '@/lib/services/job-queue.service';
 import { getConfigService } from '@/lib/services/config.service';
 import { findPlexMatch } from '@/lib/utils/audiobook-matcher';
-import { getAudibleService } from '@/lib/integrations/audible.service';
+import { getDetailsByAsin } from '@/lib/services/metadata-provider';
+import { isStorytelAsin } from '@/lib/utils/storytel-ids';
 import { RMABLogger } from '@/lib/utils/logger';
 import { shouldSkipAutoSearch } from '@/lib/utils/release-date';
 import { seedAsin, getSiblingAsins } from '@/lib/services/works.service';
@@ -25,6 +26,8 @@ export interface CreateRequestInput {
   narrator?: string;
   description?: string;
   coverArtUrl?: string;
+  isbn?: string;
+  durationMinutes?: number;
 }
 
 export interface CreateRequestOptions {
@@ -75,6 +78,7 @@ export async function createRequestForUser(
     title: audiobook.title,
     author: audiobook.author,
     narrator: audiobook.narrator,
+    isbn: audiobook.isbn,
   });
 
   if (plexMatch) {
@@ -97,15 +101,17 @@ export async function createRequestForUser(
     }
   }
 
-  // Fetch full details from Audnexus for year/series/releaseDate
+  // Fetch full details from the metadata source (Audnexus for Audible ASINs,
+  // Storytel for ST pseudo-ASINs) for year/series/releaseDate
   let year: number | undefined;
   let series: string | undefined;
   let seriesPart: string | undefined;
   let seriesAsin: string | undefined;
   let releaseDate: Date | null = null;
+  let isbn: string | undefined = audiobook.isbn;
+  let durationMinutes: number | undefined = audiobook.durationMinutes;
   try {
-    const audibleService = getAudibleService();
-    const audnexusData = await audibleService.getAudiobookDetails(audiobook.asin);
+    const audnexusData = await getDetailsByAsin(audiobook.asin);
 
     if (audnexusData?.releaseDate) {
       try {
@@ -124,8 +130,10 @@ export async function createRequestForUser(
     if (audnexusData?.series) series = audnexusData.series;
     if (audnexusData?.seriesPart) seriesPart = audnexusData.seriesPart;
     if (audnexusData?.seriesAsin) seriesAsin = audnexusData.seriesAsin;
+    if (audnexusData?.isbn && !isbn) isbn = audnexusData.isbn;
+    if (audnexusData?.durationMinutes && !durationMinutes) durationMinutes = audnexusData.durationMinutes;
   } catch (error) {
-    logger.warn(`Failed to fetch Audnexus data for ASIN ${audiobook.asin}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    logger.warn(`Failed to fetch metadata for ASIN ${audiobook.asin}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
   // Find or create audiobook record
@@ -146,6 +154,9 @@ export async function createRequestForUser(
         series,
         seriesPart,
         seriesAsin,
+        metadataSource: isStorytelAsin(audiobook.asin) ? 'storytel' : 'audible',
+        isbn,
+        durationMinutes,
         status: 'requested',
       },
     });
@@ -160,6 +171,8 @@ export async function createRequestForUser(
     if (series) updates.series = series;
     if (seriesPart) updates.seriesPart = seriesPart;
     if (seriesAsin) updates.seriesAsin = seriesAsin;
+    if (isbn && !audiobookRecord.isbn) updates.isbn = isbn;
+    if (durationMinutes && !audiobookRecord.durationMinutes) updates.durationMinutes = durationMinutes;
 
     if (Object.keys(updates).length > 0) {
       audiobookRecord = await prisma.audiobook.update({
@@ -175,7 +188,7 @@ export async function createRequestForUser(
     audiobookRecord.title,
     audiobookRecord.author,
     audiobookRecord.narrator || undefined,
-    undefined // duration not available at request time
+    durationMinutes // available for Storytel-sourced requests
   ).catch(() => {});
 
   // Check if user already has an active request for this audiobook

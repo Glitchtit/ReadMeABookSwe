@@ -38,6 +38,9 @@ export interface Audiobook {
   language?: string;
   formatType?: string;
   publisherName?: string;
+  source?: 'audible' | 'storytel';  // Metadata source; absent means Audible
+  isbn?: string;
+  storeUrl?: string;  // Product page on the source's store (Storytel share URL)
 }
 
 export function useAudiobooks(type: 'popular' | 'new-releases', limit: number = 20, page: number = 1, hideAvailable: boolean = false) {

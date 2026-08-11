@@ -182,6 +182,11 @@ model Audiobook {
   seriesPart  String? @map("series_part") // Series position (e.g., "1", "1.5", "Book 1")
   seriesAsin  String? @map("series_asin") // Audible series ASIN for linking to series detail page
 
+  // Metadata provenance (Storytel books carry an 'ST'-prefixed pseudo-ASIN in audibleAsin)
+  metadataSource  String  @default("audible") @map("metadata_source") // audible, storytel
+  isbn            String?
+  durationMinutes Int?    @map("duration_minutes") // From source metadata; used for ranking size score
+
   // Request tracking
   status String @default("requested") // requested, downloading, processing, completed, failed
 

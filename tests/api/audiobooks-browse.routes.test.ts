@@ -11,6 +11,11 @@ const audibleServiceMock = vi.hoisted(() => ({
   search: vi.fn(),
   getAudiobookDetails: vi.fn(),
   getBaseUrl: vi.fn().mockReturnValue('https://www.audible.com'),
+  getRegion: vi.fn().mockReturnValue('us'),
+}));
+const storytelServiceMock = vi.hoisted(() => ({
+  search: vi.fn(),
+  getBookDetails: vi.fn(),
 }));
 const enrichMock = vi.hoisted(() => vi.fn());
 const currentUserMock = vi.hoisted(() => vi.fn());
@@ -21,6 +26,10 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/integrations/audible.service', () => ({
   getAudibleService: () => audibleServiceMock,
+}));
+
+vi.mock('@/lib/integrations/storytel.service', () => ({
+  getStorytelService: () => storytelServiceMock,
 }));
 
 vi.mock('@/lib/utils/audiobook-matcher', () => ({
@@ -44,6 +53,8 @@ describe('Audiobooks browse routes', () => {
     vi.clearAllMocks();
     enrichMock.mockResolvedValue([]);
     currentUserMock.mockReturnValue(null);
+    audibleServiceMock.getRegion.mockReturnValue('us');
+    storytelServiceMock.search.mockResolvedValue([]);
   });
 
   it('searches Audible and enriches results', async () => {
@@ -63,6 +74,37 @@ describe('Audiobooks browse routes', () => {
 
     expect(payload.success).toBe(true);
     expect(enrichMock).toHaveBeenCalledWith([{ asin: 'ASIN', title: 'Title', author: 'Author' }], 'user-1');
+    expect(storytelServiceMock.search).not.toHaveBeenCalled();
+  });
+
+  it('merges Storytel results for the se region, keeping Audible entries on duplicates', async () => {
+    audibleServiceMock.getRegion.mockReturnValue('se');
+    audibleServiceMock.search.mockResolvedValue({
+      query: 'query',
+      results: [{ asin: 'B000000001', title: 'Svensk Bok', author: 'Författaren' }],
+      totalResults: 1,
+      page: 1,
+      hasMore: false,
+    });
+    storytelServiceMock.search.mockResolvedValue([
+      // Duplicate of the Audible entry (same title+author) — must be dropped
+      { asin: 'ST00000001', title: 'Svensk Bok', author: 'Författaren', source: 'storytel' },
+      // Storytel-only book — must be appended
+      { asin: 'ST00000002', title: 'Bara På Storytel', author: 'Författaren', source: 'storytel' },
+    ]);
+    currentUserMock.mockReturnValue({ sub: 'user-1' });
+    enrichMock.mockImplementation(async (books: any[]) => books);
+
+    const { GET } = await import('@/app/api/audiobooks/search/route');
+    const response = await GET({ nextUrl: new URL('http://app/api/audiobooks/search?q=query') } as any);
+    const payload = await response.json();
+
+    expect(payload.success).toBe(true);
+    expect(storytelServiceMock.search).toHaveBeenCalledWith('query');
+    const asins = payload.results.map((b: any) => b.asin);
+    expect(asins).toContain('B000000001');
+    expect(asins).toContain('ST00000002');
+    expect(asins).not.toContain('ST00000001');
   });
 
   it('returns 400 for invalid popular pagination', async () => {

@@ -11,6 +11,7 @@ import { groupIndexersByCategories, getGroupDescription } from '../utils/indexer
 import { RMABLogger } from '../utils/logger';
 import { getLanguageForRegion } from '../constants/language-config';
 import { filterBlockedResults } from '../utils/filter-blocked-results';
+import { isStorytelAsin } from '../utils/storytel-ids';
 import type { AudibleRegion } from '../types/audible';
 
 /**
@@ -149,9 +150,18 @@ export async function processSearchIndexers(payload: SearchIndexersPayload): Pro
       };
     }
 
-    // Fetch runtime from Audnexus if ASIN available (for size-based scoring/filtering)
+    // Runtime for size-based scoring/filtering: prefer the stored duration
+    // (populated from source metadata, e.g. Storytel), then Audnexus by ASIN.
+    // Storytel pseudo-ASINs are unknown to Audnexus, so skip the lookup.
     let durationMinutes: number | undefined;
-    if (audiobook.asin) {
+    const dbAudiobook = await prisma.audiobook.findUnique({
+      where: { id: audiobook.id },
+      select: { durationMinutes: true },
+    });
+    if (dbAudiobook?.durationMinutes) {
+      durationMinutes = dbAudiobook.durationMinutes;
+      logger.info(`Using stored runtime: ${durationMinutes} minutes`);
+    } else if (audiobook.asin && !isStorytelAsin(audiobook.asin)) {
       const { getAudibleService } = await import('../integrations/audible.service');
       const audibleService = getAudibleService();
       const runtime = await audibleService.getRuntime(audiobook.asin);

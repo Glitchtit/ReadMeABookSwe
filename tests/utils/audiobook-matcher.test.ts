@@ -146,6 +146,94 @@ describe('audiobook-matcher', () => {
     expect(results[1].isAvailable).toBe(false);
     expect(results[1].isRequested).toBe(false);
   });
+
+  describe('Storytel pseudo-ASIN fallback matching', () => {
+    it('matches by ISBN when the library item carries one (Audiobookshelf scans)', async () => {
+      prismaMock.plexLibrary.findMany.mockResolvedValue([]); // no ASIN match
+      prismaMock.plexLibrary.findFirst.mockResolvedValue({
+        plexGuid: 'abs-item-1',
+        plexRatingKey: null,
+        title: 'Hundraåringen',
+        author: 'Jonas Jonasson',
+      });
+
+      const { findPlexMatch } = await import('@/lib/utils/audiobook-matcher');
+      const match = await findPlexMatch({
+        asin: 'ST00001282',
+        title: 'Hundraåringen',
+        author: 'Jonas Jonasson',
+        isbn: '9789164232519',
+      });
+
+      expect(match?.plexGuid).toBe('abs-item-1');
+      expect(prismaMock.plexLibrary.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isbn: '9789164232519' } })
+      );
+    });
+
+    it('falls back to exact title + author word-overlap ("Last, First" ordering)', async () => {
+      prismaMock.plexLibrary.findMany
+        .mockResolvedValueOnce([]) // ASIN query
+        .mockResolvedValueOnce([
+          {
+            plexGuid: 'lib-item-2',
+            plexRatingKey: null,
+            title: 'Isprinsessan',
+            author: 'Läckberg, Camilla',
+          },
+        ]); // title query
+      prismaMock.plexLibrary.findFirst.mockResolvedValue(null);
+
+      const { findPlexMatch } = await import('@/lib/utils/audiobook-matcher');
+      const match = await findPlexMatch({
+        asin: 'ST00000042',
+        title: 'Isprinsessan',
+        author: 'Camilla Läckberg',
+        isbn: '9789100000000',
+      });
+
+      expect(match?.plexGuid).toBe('lib-item-2');
+    });
+
+    it('does not match when authors differ', async () => {
+      prismaMock.plexLibrary.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            plexGuid: 'lib-item-3',
+            plexRatingKey: null,
+            title: 'Isprinsessan',
+            author: 'Someone Else',
+          },
+        ]);
+      prismaMock.plexLibrary.findFirst.mockResolvedValue(null);
+
+      const { findPlexMatch } = await import('@/lib/utils/audiobook-matcher');
+      const match = await findPlexMatch({
+        asin: 'ST00000042',
+        title: 'Isprinsessan',
+        author: 'Camilla Läckberg',
+      });
+
+      expect(match).toBeNull();
+    });
+
+    it('does not run the fallback for real Audible ASINs', async () => {
+      prismaMock.plexLibrary.findMany.mockResolvedValue([]);
+
+      const { findPlexMatch } = await import('@/lib/utils/audiobook-matcher');
+      const match = await findPlexMatch({
+        asin: 'B00TEST123',
+        title: 'Some Book',
+        author: 'Some Author',
+        isbn: '9789164232519',
+      });
+
+      expect(match).toBeNull();
+      expect(prismaMock.plexLibrary.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.plexLibrary.findMany).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 
