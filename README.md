@@ -24,6 +24,17 @@
 
 ---
 
+## About this fork (ReadMeABookSwe)
+
+This is a fork of [kikootwo/ReadMeABook](https://github.com/kikootwo/ReadMeABook) with first-class support for **Swedish-language audiobooks**:
+
+- New **Sweden (Svenska)** Audible region in the setup wizard and admin settings. There is no audible.se marketplace (it redirects to audible.de), so the region uses the audible.de catalog filtered to Swedish-language titles.
+- Search, popular, and new-release discovery return Swedish audiobooks only.
+- Swedish metadata scraping (authors, narrators, runtimes, ratings) and Swedish-aware torrent/NZB matching (stop words, "av"-style release naming, Swedish role words like *uppläsare*).
+- E-book sidecar searches use the Swedish (`sv`) language filter.
+
+Select **Sweden (Svenska)** as the Audible region during setup to enable it.
+
 ## What is this?
 
 You run Plex or Audiobookshelf with audiobooks. You want more audiobooks. You search indexers, download torrents or NZBs, organize files, wait for your server to scan. ReadMeABook does all of that automatically.

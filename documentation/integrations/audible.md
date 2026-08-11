@@ -92,12 +92,20 @@ Configurable Audible region for accurate metadata matching across international 
 | `de` | Germany | `https://www.audible.de` | `https://api.audible.de` | false |
 | `es` | Spain | `https://www.audible.es` | `https://api.audible.es` | false |
 | `fr` | France | `https://www.audible.fr` | `https://api.audible.fr` | false |
+| `se` | Sweden (Svenska) | `https://www.audible.de` | `https://api.audible.de` | false |
 
-**`AudibleRegionConfig` fields:** `code`, `name`, `baseUrl`, `apiBaseUrl`, `audnexusParam`, `language`.
+**Sweden (`se`) region:** No audible.se marketplace exists (www.audible.se 301-redirects to www.audible.de). The `se` region uses the audible.de marketplace with `catalogLanguageFilter: true`:
+- Catalog API `search()` delegates to `searchLanguageFiltered()`: scans up to 4 raw pages × 50 products per request, filters to `language: swedish` via `isAcceptedLanguage`, paginates over accumulated matches. Needed because the API has no server-side language filter and Swedish titles can sit deep behind German translations.
+- Popular/new-release discovery uses `/search?sort=popularity-rank|pubdate-desc-rank` (honors the `language=schwedisch` htmlClient param) instead of `/adblbestsellers`//`newreleases` (which ignore it).
+- `audnexusParam: 'de'` (Audnexus has no `se` region; Swedish books resolve via `region=de`).
+- Audiobookshelf provider maps to `audible.de` (no `audible.se` provider in ABS).
+- Scraped pages render with German UI labels; the `sv` LanguageConfig includes both German and Swedish label variants.
+
+**`AudibleRegionConfig` fields:** `code`, `name`, `baseUrl`, `apiBaseUrl`, `audnexusParam`, `language`, `catalogLanguageFilter?`.
 
 **`isEnglish` flag:**
-- Non-English regions show amber warning in region dropdowns (setup wizard + admin settings): "Many features such as search, discovery, and metadata matching are not yet fully supported for non-English regions."
-- Dropdown options for non-English regions show `*` suffix.
+- Regions with languages other than `en`/`sv` show amber warning in region dropdowns (setup wizard + admin settings): "Many features such as search, discovery, and metadata matching are not yet fully supported for non-English regions."
+- Dropdown options for those regions show `*` suffix. (`sv` is fully supported in this fork.)
 
 **Why regions matter:**
 - Each Audible region uses different ASINs for the same audiobook.

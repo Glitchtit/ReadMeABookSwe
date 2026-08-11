@@ -226,6 +226,28 @@ describe('Audiobookshelf API client', () => {
     });
   });
 
+  it('maps Sweden to the audible.de provider (no audible.se marketplace exists)', async () => {
+    configServiceMock.get.mockImplementation(async (key: string) => {
+      if (key === 'audiobookshelf.server_url') return 'http://abs';
+      if (key === 'audiobookshelf.api_token') return 'token';
+      return null;
+    });
+    configServiceMock.getAudibleRegion.mockResolvedValue('se');
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    await triggerABSItemMatch('item-1', 'ASINSE1');
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toEqual({
+      provider: 'audible.de',
+      asin: 'ASINSE1',
+      overrideDefaults: true,
+    });
+  });
+
   it('uses region-specific provider for India', async () => {
     configServiceMock.get.mockImplementation(async (key: string) => {
       if (key === 'audiobookshelf.server_url') return 'http://abs';

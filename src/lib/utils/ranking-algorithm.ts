@@ -538,7 +538,8 @@ export class RankingAlgorithm {
         // 1. Acceptable prefix (no words, OR structured metadata like "Author - Series - ")
         // 2. Followed by clear metadata markers (not "'s Secret" or " Is Watching")
         // Check ORIGINAL title for metadata markers ([ ] ( ) etc. not normalized away)
-        const metadataMarkers = [' by ', ' - ', ' [', ' (', ' {', ' :', ','];
+        // ' av ' is the Swedish "by" (e.g. "Titel av Författare")
+        const metadataMarkers = [' by ', ' av ', ' - ', ' [', ' (', ' {', ' :', ','];
 
         // Check if afterTitle starts with any author name (handles space-separated format like "Title Author Year")
         const afterStartsWithAuthor = normalizedAuthors.some(author =>
@@ -689,7 +690,7 @@ export class RankingAlgorithm {
     const authors = requestAuthor
       .split(/,|&| and | - /)
       .map(a => a.trim())
-      .filter(a => a.length > 2 && !['translator', 'narrator'].includes(a));
+      .filter(a => a.length > 2 && !['translator', 'narrator', 'översättare', 'uppläsare', 'inläsare', 'berättare'].includes(a));
 
     // Normalize each author for matching
     const normalizedAuthors = authors.map(a => this.normalizeForMatching(a, characterReplacements));

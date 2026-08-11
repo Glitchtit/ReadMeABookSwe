@@ -115,11 +115,11 @@ export function BackendSelectionStep({
         >
           {Object.values(AUDIBLE_REGIONS).map((region) => (
             <option key={region.code} value={region.code}>
-              {region.name}{region.language !== 'en' ? ' *' : ''}
+              {region.name}{region.language !== 'en' && region.language !== 'sv' ? ' *' : ''}
             </option>
           ))}
         </select>
-        {AUDIBLE_REGIONS[audibleRegion]?.language !== 'en' && (
+        {AUDIBLE_REGIONS[audibleRegion]?.language !== 'en' && AUDIBLE_REGIONS[audibleRegion]?.language !== 'sv' && (
           <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800 mt-2">
             <div className="flex gap-3">
               <svg

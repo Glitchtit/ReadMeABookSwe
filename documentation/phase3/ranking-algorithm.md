@@ -51,7 +51,7 @@ Evaluates and scores torrents to automatically select best audiobook download.
 **Multi-Stage Matching:**
 
 **Stage 1: Word Coverage Filter (MANDATORY)**
-- Extracts significant words from request (filters stop words: "the", "a", "an", "of", "on", "in", "at", "by", "for")
+- Extracts significant words from request (filters stop words; English defaults "the", "a", "an", "of", "on", "in", "at", "by", "for" — call sites pass language-specific stop words from `LanguageConfig`, e.g. Swedish "och", "att", "en", "ett")
 - **Parenthetical/bracketed content is optional**: Content in () [] {} treated as subtitle (may be omitted from torrents)
   - "We Are Legion (We Are Bob)" → Required: ["we", "are", "legion"], Optional: ["bob"]
   - "Title [Series Name]" → Required: ["title"], Optional: ["series", "name"]

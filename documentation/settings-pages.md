@@ -155,7 +155,7 @@ src/app/admin/settings/
 
 **Configuration:**
 - Key: `audible.region` (string, default: 'us')
-- Supported regions: US, Canada, UK, Australia, India
+- Supported regions: US, Canada, UK, Australia, India, Germany, Spain, France, Sweden (via audible.de)
 - UI: Dropdown selector in Library tab (both Plex and Audiobookshelf settings)
 - No validation required (immediate save)
 
@@ -311,7 +311,7 @@ src/app/admin/settings/
 
 **PUT /api/admin/settings/audible**
 - Updates Audible region
-- Body: `{ region: string }` (one of: us, ca, uk, au, in, es, fr)
+- Body: `{ region: string }` (one of: us, ca, uk, au, in, de, es, fr, se)
 - No validation required
 
 **PUT /api/admin/settings/prowlarr/indexers**

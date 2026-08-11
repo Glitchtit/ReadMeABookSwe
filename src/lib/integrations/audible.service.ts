@@ -33,6 +33,11 @@ const AUDIBLE_PAGE_SIZE = 50;
 const CATALOG_RESPONSE_GROUPS =
   'contributors,product_desc,product_attrs,product_extended_attrs,media,rating,series,category_ladders,product_details';
 
+// Language-filtered region search (see searchLanguageFiltered): how many raw
+// catalog pages to scan per request and how many products per page (API max 50).
+const LANG_SCAN_PAGE_SIZE = 50;
+const LANG_SCAN_MAX_PAGES = 4;
+
 // Retry/backoff knobs for HTML scraping (nightly refresh job only).
 // Healthy users still finish quickly — per-page success returns on attempt 0
 // with a 2-4s inter-page delay. Struggling users grind through 503 storms
@@ -416,6 +421,12 @@ export class AudibleService {
     let page = 1;
     const maxPages = Math.ceil(limit / AUDIBLE_PAGE_SIZE);
 
+    // The curated /adblbestsellers page ignores the language filter param, so
+    // language-filtered regions (e.g. Sweden via audible.de) use /search
+    // sorted by popularity instead — the htmlClient's default language param
+    // (e.g. 'schwedisch') then restricts results to the region's language.
+    const languageFiltered = AUDIBLE_REGIONS[this.region].catalogLanguageFilter === true;
+
     this.pacer.reset();
 
     while (audiobooks.length < limit && page <= maxPages) {
@@ -423,11 +434,12 @@ export class AudibleService {
         logger.info(` Fetching page ${page}/${maxPages}...`);
 
         const { data: response, meta } = await this.fetchWithRetry(
-          '/adblbestsellers',
+          languageFiltered ? '/search' : '/adblbestsellers',
           {
             params: {
               ipRedirectOverride: 'true',
               pageSize: AUDIBLE_PAGE_SIZE,
+              ...(languageFiltered ? { sort: 'popularity-rank' } : {}),
               ...(page > 1 ? { page } : {}),
             },
           },
@@ -436,11 +448,9 @@ export class AudibleService {
           HTML_MAX_BACKOFF_MS,
         );
 
-        const foundOnPage = this.parseProductListItems(
-          response.data,
-          audiobooks,
-          limit,
-        );
+        const foundOnPage = languageFiltered
+          ? this.parseSearchResultItems(response.data, audiobooks, limit)
+          : this.parseProductListItems(response.data, audiobooks, limit);
 
         logger.info(` Found ${foundOnPage} audiobooks on page ${page}`);
 
@@ -483,16 +493,22 @@ export class AudibleService {
 
     this.pacer.reset();
 
+    // Same rationale as getPopularAudiobooks: the curated /newreleases page
+    // ignores the language param, so language-filtered regions use /search
+    // sorted by publication date.
+    const languageFiltered = AUDIBLE_REGIONS[this.region].catalogLanguageFilter === true;
+
     while (audiobooks.length < limit && page <= maxPages) {
       try {
         logger.info(` Fetching page ${page}/${maxPages}...`);
 
         const { data: response, meta } = await this.fetchWithRetry(
-          '/newreleases',
+          languageFiltered ? '/search' : '/newreleases',
           {
             params: {
               ipRedirectOverride: 'true',
               pageSize: AUDIBLE_PAGE_SIZE,
+              ...(languageFiltered ? { sort: 'pubdate-desc-rank' } : {}),
               ...(page > 1 ? { page } : {}),
             },
           },
@@ -501,11 +517,9 @@ export class AudibleService {
           HTML_MAX_BACKOFF_MS,
         );
 
-        const foundOnPage = this.parseProductListItems(
-          response.data,
-          audiobooks,
-          limit,
-        );
+        const foundOnPage = languageFiltered
+          ? this.parseSearchResultItems(response.data, audiobooks, limit)
+          : this.parseProductListItems(response.data, audiobooks, limit);
 
         logger.info(` Found ${foundOnPage} audiobooks on page ${page}`);
 
@@ -537,6 +551,10 @@ export class AudibleService {
 
     try {
       logger.info(` Searching for "${query}"...`);
+
+      if (AUDIBLE_REGIONS[this.region].catalogLanguageFilter) {
+        return await this.searchLanguageFiltered(query, page);
+      }
 
       const { data: response } = await this.fetchWithRetry(
         '/1.0/catalog/products',
@@ -577,6 +595,74 @@ export class AudibleService {
       });
       return { query, results: [], totalResults: 0, page, hasMore: false };
     }
+  }
+
+  /**
+   * Search for regions whose language differs from their marketplace's native
+   * language (e.g. Sweden via audible.de). The catalog API has no server-side
+   * language filter and matching titles can sit deep in the keyword results
+   * (a Swedish author's German translations often fill the first pages), so
+   * scan up to LANG_SCAN_MAX_PAGES API pages of LANG_SCAN_PAGE_SIZE products,
+   * filter client-side, and paginate over the accumulated matches.
+   */
+  private async searchLanguageFiltered(
+    query: string,
+    page: number,
+  ): Promise<AudibleSearchResult> {
+    const langConfig = getLanguageForRegion(this.region);
+    const needed = page * AUDIBLE_PAGE_SIZE;
+    const matches: NonNullable<CatalogProductsResponse['products']> = [];
+    let rawExhausted = false;
+
+    for (let apiPage = 0; apiPage < LANG_SCAN_MAX_PAGES; apiPage++) {
+      const { data: response } = await this.fetchWithRetry(
+        '/1.0/catalog/products',
+        {
+          params: {
+            keywords: query,
+            num_results: LANG_SCAN_PAGE_SIZE,
+            page: apiPage,
+            response_groups: CATALOG_RESPONSE_GROUPS,
+          },
+        },
+        5,
+        this.apiClient,
+      );
+
+      const envelope: CatalogProductsResponse = response.data;
+      const products = envelope.products ?? [];
+
+      matches.push(
+        ...products.filter(
+          (p) => p.language && isAcceptedLanguage(p.language, langConfig),
+        ),
+      );
+
+      if (products.length < LANG_SCAN_PAGE_SIZE) {
+        rawExhausted = true;
+        break;
+      }
+      if (matches.length > needed) {
+        break;
+      }
+    }
+
+    const start = (page - 1) * AUDIBLE_PAGE_SIZE;
+    const results = matches
+      .slice(start, start + AUDIBLE_PAGE_SIZE)
+      .map(mapCatalogProduct);
+
+    logger.info(
+      ` Found ${matches.length} ${langConfig.code} results for "${query}"${rawExhausted ? '' : ' (scan capped)'}`,
+    );
+
+    return {
+      query,
+      results,
+      totalResults: matches.length,
+      page,
+      hasMore: matches.length > needed || !rawExhausted,
+    };
   }
 
   /**

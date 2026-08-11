@@ -5,7 +5,7 @@
 
 import type { SupportedLanguage } from '../constants/language-config';
 
-export type AudibleRegion = 'us' | 'ca' | 'uk' | 'au' | 'in' | 'de' | 'es' | 'fr';
+export type AudibleRegion = 'us' | 'ca' | 'uk' | 'au' | 'in' | 'de' | 'es' | 'fr' | 'se';
 
 export interface AudibleRegionConfig {
   code: AudibleRegion;
@@ -14,6 +14,14 @@ export interface AudibleRegionConfig {
   apiBaseUrl: string;
   audnexusParam: string;
   language: SupportedLanguage;
+  /**
+   * True when the region's language differs from the marketplace's native
+   * language (e.g. Sweden is served by audible.de). Catalog search results
+   * are then filtered to the region's language, and popular/new-release
+   * discovery uses /search (which honors the language param) instead of the
+   * curated bestseller pages.
+   */
+  catalogLanguageFilter?: boolean;
 }
 
 export const AUDIBLE_REGIONS: Record<AudibleRegion, AudibleRegionConfig> = {
@@ -80,6 +88,17 @@ export const AUDIBLE_REGIONS: Record<AudibleRegion, AudibleRegionConfig> = {
     apiBaseUrl: 'https://api.audible.fr',
     audnexusParam: 'fr',
     language: 'fr',
+  },
+  // There is no audible.se marketplace — www.audible.se 301-redirects to
+  // www.audible.de, which carries the Swedish catalog (language: "swedish").
+  se: {
+    code: 'se',
+    name: 'Sweden (Svenska)',
+    baseUrl: 'https://www.audible.de',
+    apiBaseUrl: 'https://api.audible.de',
+    audnexusParam: 'de',
+    language: 'sv',
+    catalogLanguageFilter: true,
   },
 };
 

@@ -16,7 +16,7 @@ import type { AudibleRegion } from '../types/audible';
 // Types
 // ---------------------------------------------------------------------------
 
-export type SupportedLanguage = 'en' | 'de' | 'es' | 'fr';
+export type SupportedLanguage = 'en' | 'de' | 'es' | 'fr' | 'sv';
 
 export interface ScrapingConfig {
   /** Audible locale query-param value (e.g. 'english', 'deutsch') */
@@ -202,6 +202,50 @@ const FRENCH_CONFIG: LanguageConfig = {
   },
 };
 
+/**
+ * Swedish is served through the audible.de marketplace (no audible.se exists),
+ * so scraped pages render with GERMAN UI labels while the content itself is
+ * Swedish. Scraping labels therefore include both German and Swedish variants;
+ * matching config (stop words, accepted language values) is Swedish.
+ */
+const SWEDISH_CONFIG: LanguageConfig = {
+  code: 'sv',
+  annasArchiveLang: 'sv',
+  epubCode: 'sv',
+  stopWords: ['och', 'att', 'en', 'ett', 'det', 'den', 'de', 'som', 'av', 'på', 'i', 'för', 'till', 'med', 'om', 'är'],
+  characterReplacements: {},
+  scraping: {
+    audibleLocaleParam: 'schwedisch',
+    authorPrefixes: ['Von:', 'Geschrieben von:', 'Autor:', 'Av:', 'Skriven av:', 'Författare:'],
+    narratorPrefixes: ['Gesprochen von:', 'Sprecher:', 'Uppläsare:', 'Uppläst av:', 'Inläst av:'],
+    lengthLabels: ['Spieldauer:', 'Dauer:', 'Länge:', 'Speltid:', 'Längd:'],
+    languageLabels: ['Sprache:', 'Språk:'],
+    releaseDateLabels: ['Erscheinungsdatum:', 'Utgivningsdatum:'],
+    seriesLabels: ['Serie:', 'Reihe:'],
+    acceptedLanguageValues: ['svenska', 'swedish', 'schwedisch'],
+    runtimeHourPatterns: [/(\d+)\s*Std\.?/i, /(\d+)\s*Stunden?/i, /(\d+)\s*tim(?:mar|me)?\b\.?/i, /(\d+)\s*h\b/i],
+    runtimeMinutePatterns: [/(\d+)\s*Min\.?/i, /(\d+)\s*Minuten?/i, /(\d+)\s*minuter?/i],
+    ratingPatterns: [/(\d+[.,]?\d*)\s*von\s*5/i, /(\d+[.,]?\d*)\s*av\s*5/i],
+    releaseDatePatterns: [/Erscheinungsdatum:\s*(.+)/i, /Utgivningsdatum:\s*(.+)/i],
+    descriptionExcludePatterns: [
+      /\$\d+\.\d+/,
+      /\d+,\d+\s*€/,
+      /jederzeit kündbar/i,
+      /kostenlos testen/i,
+      /Mitgliedschaft/i,
+      /abonnieren/i,
+      /Angebot.*endet/i,
+      /avsluta när du vill/i,
+      /prova gratis/i,
+      /medlemskap/i,
+      /prenumerera/i,
+      /^\s*(von|av)\s+[\w\s,]+$/i,
+    ],
+    durationDetectionPattern: /\d+\s*(Std|Stunden?|tim|timmar?|h)\s*\.?\s*\d*\s*(Min|Minuten?|minuter?|m)?/i,
+    ratingTextSelector: 'von 5 Sternen',
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Lookup Maps
 // ---------------------------------------------------------------------------
@@ -211,6 +255,7 @@ export const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
   de: GERMAN_CONFIG,
   es: SPANISH_CONFIG,
   fr: FRENCH_CONFIG,
+  sv: SWEDISH_CONFIG,
 };
 
 /**
@@ -226,6 +271,7 @@ export const REGION_LANGUAGE_MAP: Record<AudibleRegion, SupportedLanguage> = {
   de: 'de',
   es: 'es',
   fr: 'fr',
+  se: 'sv',
 };
 
 // ---------------------------------------------------------------------------
