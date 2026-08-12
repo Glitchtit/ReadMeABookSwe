@@ -21,7 +21,7 @@ interface AuthorCardProps {
 export function AuthorCard({ author }: AuthorCardProps) {
   return (
     <Link
-      href={`/authors/${author.asin}`}
+      href={`/authors/${author.asin}?name=${encodeURIComponent(author.name)}`}
       className="group outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-2xl"
       aria-label={`View details for ${author.name}`}
     >

@@ -55,8 +55,12 @@ export function useAuthorSearch(name: string) {
   };
 }
 
-export function useAuthorDetail(asin: string | null) {
-  const endpoint = asin ? `/api/authors/${asin}` : null;
+export function useAuthorDetail(asin: string | null, name?: string | null) {
+  // The name is only needed for Storytel-only authors (SA pseudo-ASINs, no
+  // author-by-id lookup upstream) but is passed along whenever available.
+  const endpoint = asin
+    ? `/api/authors/${asin}${name ? `?name=${encodeURIComponent(name)}` : ''}`
+    : null;
 
   const { data, error, isLoading } = useSWR(endpoint, authenticatedFetcher, {
     revalidateOnFocus: false,

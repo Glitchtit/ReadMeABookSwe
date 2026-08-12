@@ -4,7 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAudibleService } from '@/lib/integrations/audible.service';
+import { getAudibleService, type AudibleAudiobook } from '@/lib/integrations/audible.service';
+import { getStorytelService } from '@/lib/integrations/storytel.service';
+import { getConfigService } from '@/lib/services/config.service';
+import { isStorytelAuthorAsin, fromStorytelAuthorAsin } from '@/lib/utils/storytel-ids';
 import { enrichAudiobooksWithMatches } from '@/lib/utils/audiobook-matcher';
 import { deduplicateAndCollectGroups } from '@/lib/utils/deduplicate-audiobooks';
 import { persistDedupGroups, collapseByExistingWorks } from '@/lib/services/works.service';
@@ -53,13 +56,41 @@ export async function GET(
 
     logger.info(`Fetching books for author "${authorName}" (ASIN: ${asin}), page ${page}`);
 
-    const audibleService = getAudibleService();
-    const result = await audibleService.searchByAuthorAsin(authorName.trim(), asin, page);
+    let books: AudibleAudiobook[];
+    let hasMore = false;
+    let resultPage = page;
+
+    if (isStorytelAuthorAsin(asin)) {
+      // Storytel-only author: books come exclusively from Storytel, matched by
+      // numeric author id. The legacy API has no pagination — page 1 only.
+      const authorId = fromStorytelAuthorAsin(asin)!;
+      books = page === 1
+        ? await getStorytelService().getBooksByAuthor(authorName.trim(), authorId)
+        : [];
+    } else {
+      const result = await getAudibleService().searchByAuthorAsin(authorName.trim(), asin, page);
+      books = result.books;
+      hasMore = result.hasMore;
+      resultPage = result.page;
+
+      // Swedish support: merge the author's Storytel books on page 1 (no
+      // pagination upstream). Title+author duplicates keep the Audible entry,
+      // which carries a real ASIN. Storytel failures degrade to Audible-only.
+      if (page === 1 && (await getConfigService().isStorytelEnabled())) {
+        const storytelBooks = await getStorytelService().getBooksByAuthor(authorName.trim());
+        if (storytelBooks.length > 0) {
+          const normKey = (b: AudibleAudiobook) =>
+            `${b.title.toLowerCase().trim()}|${b.author.toLowerCase().trim()}`;
+          const seen = new Set(books.map(normKey));
+          books = [...books, ...storytelBooks.filter((b) => !seen.has(normKey(b)))];
+        }
+      }
+    }
 
     // Two-pass dedup: local title/narrator/duration matching first, then collapse
     // any remaining duplicates that the works table already knows are the same book
     // (handles cases where source metadata diverges across paths or pages).
-    const { books: dedupedBooks, groups } = deduplicateAndCollectGroups(result.books);
+    const { books: dedupedBooks, groups } = deduplicateAndCollectGroups(books);
 
     if (groups.length > 0) {
       persistDedupGroups(groups).catch(() => {});
@@ -82,8 +113,8 @@ export async function GET(
       authorName: authorName.trim(),
       authorAsin: asin,
       totalBooks: enrichedBooks.length,
-      hasMore: result.hasMore,
-      page: result.page,
+      hasMore,
+      page: resultPage,
     });
   } catch (error) {
     logger.error('Failed to fetch author books', { error: error instanceof Error ? error.message : String(error) });

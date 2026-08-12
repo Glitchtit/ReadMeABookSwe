@@ -4,7 +4,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { toStorytelAsin, isStorytelAsin, fromStorytelAsin } from '@/lib/utils/storytel-ids';
+import {
+  toStorytelAsin,
+  isStorytelAsin,
+  fromStorytelAsin,
+  toStorytelAuthorAsin,
+  isStorytelAuthorAsin,
+  fromStorytelAuthorAsin,
+} from '@/lib/utils/storytel-ids';
 
 describe('storytel-ids', () => {
   it('encodes numeric bookIds as 10-character pseudo-ASINs', () => {
@@ -38,5 +45,24 @@ describe('storytel-ids', () => {
   it('returns null from fromStorytelAsin for non-Storytel ids', () => {
     expect(fromStorytelAsin('B0F8Y17JRR')).toBeNull();
     expect(fromStorytelAsin(null)).toBeNull();
+  });
+});
+
+describe('storytel author pseudo-ASINs', () => {
+  it('encodes author ids with the SA prefix and round-trips', () => {
+    expect(toStorytelAuthorAsin(298)).toBe('SA00000298');
+    expect(toStorytelAuthorAsin(298)).toHaveLength(10);
+    expect(fromStorytelAuthorAsin(toStorytelAuthorAsin('42'))).toBe('42');
+    expect(() => toStorytelAuthorAsin('123456789')).toThrow();
+  });
+
+  it('keeps the author and book namespaces disjoint', () => {
+    // Book plumbing keyed on isStorytelAsin must never match an author asin.
+    expect(isStorytelAuthorAsin('SA00000298')).toBe(true);
+    expect(isStorytelAsin('SA00000298')).toBe(false);
+    expect(isStorytelAuthorAsin('ST00001282')).toBe(false);
+    expect(isStorytelAuthorAsin('B0F8Y17JRR')).toBe(false);
+    expect(isStorytelAuthorAsin(null)).toBe(false);
+    expect(fromStorytelAuthorAsin('ST00001282')).toBeNull();
   });
 });

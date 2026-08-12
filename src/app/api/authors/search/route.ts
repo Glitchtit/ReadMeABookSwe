@@ -13,6 +13,8 @@ import {
   searchAuthors,
   fetchAuthorDetail,
 } from '@/lib/integrations/audnexus-authors';
+import { getStorytelService, normalizeAuthorName } from '@/lib/integrations/storytel.service';
+import { toStorytelAuthorAsin } from '@/lib/utils/storytel-ids';
 
 const logger = RMABLogger.create('API.Authors.Search');
 
@@ -47,32 +49,56 @@ export async function GET(request: NextRequest) {
 
     logger.info(`Searching authors: "${name}" (region: ${region})`);
 
-    // Step 1: Search for authors (returns list with potential duplicates)
-    const searchResults = await searchAuthors(name.trim(), region);
+    // Steps 1-3: Audnexus author search + parallel detail enrichment.
+    // Degrades to an empty list on failure so Storytel results still return.
+    let authors: Array<{
+      asin: string;
+      name: string;
+      description?: string;
+      image?: string;
+      genres: string[];
+      similarCount: number;
+    }> = [];
+    try {
+      const searchResults = await searchAuthors(name.trim(), region);
+      const detailPromises = searchResults.map(author => fetchAuthorDetail(author.asin, region));
+      const detailResults = await Promise.all(detailPromises);
 
-    if (searchResults.length === 0) {
-      return NextResponse.json({
-        success: true,
-        authors: [],
-        query: name.trim(),
+      authors = detailResults
+        .filter((detail): detail is AudnexusAuthorDetail => detail !== null)
+        .map(detail => ({
+          asin: detail.asin,
+          name: detail.name,
+          description: detail.description || undefined,
+          image: detail.image || undefined,
+          genres: detail.genres?.map(g => g.name).slice(0, 3) || [],
+          similarCount: detail.similar?.length || 0,
+        }));
+    } catch (audnexusError) {
+      logger.warn('Audnexus author search failed, continuing with Storytel only', {
+        error: audnexusError instanceof Error ? audnexusError.message : String(audnexusError),
       });
     }
 
-    // Step 2: Fetch details for all unique authors in parallel
-    const detailPromises = searchResults.map(author => fetchAuthorDetail(author.asin, region));
-    const detailResults = await Promise.all(detailPromises);
-
-    // Step 3: Build enriched results, filtering out any failed fetches
-    const authors = detailResults
-      .filter((detail): detail is AudnexusAuthorDetail => detail !== null)
-      .map(detail => ({
-        asin: detail.asin,
-        name: detail.name,
-        description: detail.description || undefined,
-        image: detail.image || undefined,
-        genres: detail.genres?.map(g => g.name).slice(0, 3) || [],
-        similarCount: detail.similar?.length || 0,
-      }));
+    // Step 4: Merge Storytel-only authors (Swedish support). Authors already
+    // found on Audnexus keep their Audible identity — their Swedish books are
+    // merged on the author page instead. Storytel-only authors get an 'SA'
+    // pseudo-ASIN and a minimal card (the legacy API has no image/bio).
+    if (await configService.isStorytelEnabled()) {
+      const storytelAuthors = await getStorytelService().searchAuthors(name.trim());
+      const seenNames = new Set(authors.map(a => normalizeAuthorName(a.name)));
+      for (const author of storytelAuthors) {
+        if (seenNames.has(normalizeAuthorName(author.name))) continue;
+        authors.push({
+          asin: toStorytelAuthorAsin(author.id),
+          name: author.name,
+          description: undefined,
+          image: undefined,
+          genres: [],
+          similarCount: 0,
+        });
+      }
+    }
 
     logger.info(`Author search complete: "${name}" → ${authors.length} results`);
 

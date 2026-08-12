@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { AuthorDetail } from '@/lib/hooks/useAuthors';
 import { WatchAuthorButton } from '@/components/ui/WatchButton';
+import { isStorytelAuthorAsin } from '@/lib/utils/storytel-ids';
 
 interface AuthorDetailCardProps {
   author: AuthorDetail;
@@ -80,11 +81,15 @@ export function AuthorDetailCard({ author }: AuthorDetailCardProps) {
               </svg>
             </a>
           )}
-          <WatchAuthorButton
-            authorAsin={author.asin}
-            authorName={author.name}
-            coverArtUrl={author.image}
-          />
+          {/* Author watch lists sync via the Audible catalog, which can never
+              match a Storytel-only author — hide the button for SA asins. */}
+          {!isStorytelAuthorAsin(author.asin) && (
+            <WatchAuthorButton
+              authorAsin={author.asin}
+              authorName={author.name}
+              coverArtUrl={author.image}
+            />
+          )}
         </div>
 
         {/* Description */}

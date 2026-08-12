@@ -12,6 +12,7 @@ import {
   AudnexusAuthorDetail,
   fetchAuthorDetail,
 } from '@/lib/integrations/audnexus-authors';
+import { isStorytelAuthorAsin } from '@/lib/utils/storytel-ids';
 
 const logger = RMABLogger.create('API.Authors.Detail');
 
@@ -41,6 +42,31 @@ export async function GET(
         { error: 'ValidationError', message: 'Valid author ASIN is required' },
         { status: 400 }
       );
+    }
+
+    // Storytel-only authors (SA pseudo-ASIN): the legacy Storytel API has no
+    // author-by-id lookup, so the name travels via the ?name= query param
+    // (added to author links by the frontend). No bio/image/similar available.
+    if (isStorytelAuthorAsin(asin)) {
+      const storytelName = request.nextUrl.searchParams.get('name');
+      if (!storytelName || storytelName.trim().length === 0) {
+        return NextResponse.json(
+          { error: 'NotFound', message: 'Author not found' },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json({
+        success: true,
+        author: {
+          asin,
+          name: storytelName.trim(),
+          description: undefined,
+          image: undefined,
+          genres: [],
+          similar: [],
+          audibleUrl: undefined,
+        },
+      });
     }
 
     const configService = getConfigService();

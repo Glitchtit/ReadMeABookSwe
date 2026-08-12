@@ -17,6 +17,14 @@ Storytel is the only Swedish source (the audible.de-based `se` pseudo-region was
 - **Details dispatch:** `src/lib/services/metadata-provider.ts` `getDetailsByAsin(asin)` routes ST asins to Storytel, others to Audnexus/Audible. Used by details route, request-creator, request-with-torrent.
 - **DB columns (audiobooks):** `metadata_source` (default 'audible'), `isbn`, `duration_minutes` — migration `20260811000000_add_metadata_source_isbn_duration`.
 
+## Author Support
+- **Author pseudo-ASINs:** `'SA' + authorId.padStart(8, '0')` (e.g. `SA00000298` = Läckberg). Distinct `SA` prefix keeps book plumbing (`isStorytelAsin`) from ever matching authors. Utils in `storytel-ids.ts`.
+- **Service methods:** `searchAuthors(query)` — distinct authors (id, name, bookCount) collected from `book.authors[]` of Swedish audiobook search entries, diacritic-insensitive substring match (`normalizeAuthorName`). `getBooksByAuthor(name, id?)` — searches by name (only query the API supports), filters by exact author id when given, else diacritic-insensitive exact name.
+- **`/api/authors/search`:** merges Storytel-only authors after Audnexus results (toggle-gated); Audnexus-known authors are NOT duplicated — their Swedish books merge on their page instead. Audnexus failures degrade to Storytel-only results.
+- **`/api/authors/[asin]`:** for SA asins, synthesizes minimal detail from the `?name=` query param (no author-by-id lookup exists upstream); 404 without it. No bio/image/similar.
+- **`/api/authors/[asin]/books`:** regular authors get Storytel books merged on page 1 (toggle-gated, title+author dedup keeps Audible); SA authors get Storytel-only books by author id.
+- **Frontend:** `AuthorCard` links carry `?name=`; `useAuthorDetail(asin, name)` forwards it; `AuthorDetailCard` hides the Watch button for SA asins (author watch lists sync via Audible and can never match).
+
 ## ASIN-less Downstream Handling
 - **Library matching:** `findPlexMatch` falls back for ST asins: (1) exact `plexLibrary.isbn` match (ABS populates isbn), (2) case-insensitive exact title + author word-overlap. Fixes the downloaded→available transition and availability badges.
 - **Ranking runtime:** `search-indexers.processor` prefers stored `durationMinutes` (Storytel provides it) before Audnexus; skips Audnexus for ST asins.
@@ -35,5 +43,6 @@ Storytel is the only Swedish source (the audible.de-based `se` pseudo-region was
 - Unofficial legacy API — may change/rate-limit without notice; all failures degrade gracefully (empty results / null details).
 - Storytel books never enter watched-list auto-requests (ASIN-validated flows) — by design for Phase 1.
 - No discovery endpoints (search only) — home-page popular/new-release sections are Audible (English) only; Swedish books are found via search.
+- Deep-linking an SA author URL without `?name=` shows "Author not found" (name cannot be resolved from the id).
 
 ## Related: integrations/audible.md, phase3/ranking-algorithm.md

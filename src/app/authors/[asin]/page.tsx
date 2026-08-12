@@ -27,7 +27,8 @@ export default function AuthorDetailPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromAuthorName = searchParams.get('from');
-  const { author, isLoading: authorLoading } = useAuthorDetail(asin);
+  const nameParam = searchParams.get('name');
+  const { author, isLoading: authorLoading } = useAuthorDetail(asin, nameParam);
   const { books, totalBooks, hasMore, isLoading: booksLoading, isLoadingMore, loadMore } = useAuthorBooks(
     asin,
     author?.name || null

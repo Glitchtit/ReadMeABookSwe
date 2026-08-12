@@ -16,7 +16,7 @@ vi.mock('axios', () => ({
   ...axiosMock,
 }));
 
-import { StorytelService } from '@/lib/integrations/storytel.service';
+import { StorytelService, normalizeAuthorName } from '@/lib/integrations/storytel.service';
 
 // Mirrors the live search.action response shape (verified against
 // www.storytel.com/api/search.action for "hundraåringen").
@@ -27,6 +27,7 @@ function makeEntry(overrides: {
   abook?: Record<string, unknown> | null;
   seriesName?: string;
   seriesOrder?: string;
+  authors?: Array<{ id: number | string; name: string }>;
 } = {}) {
   const {
     bookId = 1282,
@@ -35,13 +36,15 @@ function makeEntry(overrides: {
     seriesName,
     seriesOrder,
     abook = {},
+    authors = [{ id: 3243, name: 'Jonas Jonasson' }],
   } = overrides;
   return {
     shareUrl: `https://www.storytel.com/se/books/test-${bookId}`,
     book: {
       id: String(bookId),
       name,
-      authorsAsString: 'Jonas Jonasson',
+      authors,
+      authorsAsString: authors.map((a) => a.name).join(', '),
       language: { isoValue: iso, name: 'Swedish' },
       largeCover: `/images/320x320/${String(bookId).padStart(10, '0')}.jpg`,
       grade: '4.37',
@@ -139,5 +142,103 @@ describe('StorytelService', () => {
 
     const service = new StorytelService();
     await expect(service.getBookDetails('999')).resolves.toBeNull();
+  });
+});
+
+describe('normalizeAuthorName', () => {
+  it('is diacritic- and case-insensitive with collapsed whitespace', () => {
+    expect(normalizeAuthorName('Camilla Läckberg')).toBe('camilla lackberg');
+    expect(normalizeAuthorName('  CAMILLA   Lackberg ')).toBe('camilla lackberg');
+    expect(normalizeAuthorName('Björn Granath')).toBe(normalizeAuthorName('BJORN GRANATH'));
+  });
+});
+
+describe('StorytelService.searchAuthors', () => {
+  beforeEach(() => {
+    clientMock.get.mockReset();
+  });
+
+  it('collects distinct matching authors from Swedish audiobook entries', async () => {
+    clientMock.get.mockResolvedValue({
+      data: {
+        books: [
+          makeEntry({ bookId: 1, authors: [{ id: 298, name: 'Camilla Läckberg' }] }),
+          makeEntry({ bookId: 2, authors: [{ id: 298, name: 'Camilla Läckberg' }] }),
+          // Co-authored: both authors present, only the matching one is returned
+          makeEntry({
+            bookId: 3,
+            authors: [
+              { id: 298, name: 'Camilla Läckberg' },
+              { id: 500, name: 'Henrik Fexeus' },
+            ],
+          }),
+          // Non-Swedish entry: ignored entirely
+          makeEntry({ bookId: 4, iso: 'en', authors: [{ id: 298, name: 'Camilla Läckberg' }] }),
+        ],
+      },
+    });
+
+    const service = new StorytelService();
+    const authors = await service.searchAuthors('lackberg');
+
+    expect(authors).toEqual([{ id: '298', name: 'Camilla Läckberg', bookCount: 3 }]);
+  });
+
+  it('returns an empty list on network errors', async () => {
+    clientMock.get.mockRejectedValue(new Error('boom'));
+
+    const service = new StorytelService();
+    await expect(service.searchAuthors('test')).resolves.toEqual([]);
+  });
+});
+
+describe('StorytelService.getBooksByAuthor', () => {
+  beforeEach(() => {
+    clientMock.get.mockReset();
+  });
+
+  it('filters by numeric author id when given', async () => {
+    clientMock.get.mockResolvedValue({
+      data: {
+        books: [
+          makeEntry({ bookId: 1, authors: [{ id: 298, name: 'Camilla Läckberg' }] }),
+          makeEntry({ bookId: 2, authors: [{ id: 500, name: 'Henrik Fexeus' }] }),
+        ],
+      },
+    });
+
+    const service = new StorytelService();
+    const books = await service.getBooksByAuthor('Camilla Läckberg', '298');
+
+    expect(clientMock.get).toHaveBeenCalledWith('/api/search.action', {
+      params: { q: 'Camilla Läckberg', request_locale: 'sv' },
+    });
+    expect(books.map((b) => b.asin)).toEqual(['ST00000001']);
+  });
+
+  it('falls back to diacritic-insensitive exact name matching without an id', async () => {
+    clientMock.get.mockResolvedValue({
+      data: {
+        books: [
+          makeEntry({ bookId: 1, authors: [{ id: 298, name: 'Camilla Läckberg' }] }),
+          // Different author whose name merely contains the query
+          makeEntry({ bookId: 2, authors: [{ id: 999, name: 'Camilla Läckberg Junior' }] }),
+          makeEntry({ bookId: 3, iso: 'en', authors: [{ id: 298, name: 'Camilla Läckberg' }] }),
+        ],
+      },
+    });
+
+    const service = new StorytelService();
+    // Audnexus may strip diacritics from the author name
+    const books = await service.getBooksByAuthor('Camilla Lackberg');
+
+    expect(books.map((b) => b.asin)).toEqual(['ST00000001']);
+  });
+
+  it('returns an empty list on network errors', async () => {
+    clientMock.get.mockRejectedValue(new Error('boom'));
+
+    const service = new StorytelService();
+    await expect(service.getBooksByAuthor('test')).resolves.toEqual([]);
   });
 });
