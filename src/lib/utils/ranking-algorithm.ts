@@ -546,10 +546,15 @@ export class RankingAlgorithm {
           author.length > 2 && afterTitle.trim().startsWith(author)
         );
 
-        // Check metadata markers in both normalized and original suffixes
+        // Check metadata markers in both normalized and original suffixes.
+        // Tight separators ("Titel-AUDIOBOOK-...", "Titel.2026.") are scene
+        // naming conventions — the prefix check already accepts unspaced '-'
+        // and ':', so the suffix side mirrors it. Word continuations
+        // (" is watching", "'s secret") still fall through to fuzzy scoring.
         const hasMetadataSuffix = afterTitle === '' ||
                                   metadataMarkers.some(marker => afterTitle.startsWith(marker)) ||
                                   metadataMarkers.some(marker => afterTitleOriginal.startsWith(marker)) ||
+                                  /^[-:.]/.test(afterTitleOriginal) ||
                                   afterStartsWithAuthor;
 
         // Check prefix validity:

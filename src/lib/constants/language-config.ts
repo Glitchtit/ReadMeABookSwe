@@ -214,7 +214,11 @@ const SWEDISH_CONFIG: LanguageConfig = {
   annasArchiveLang: 'sv',
   epubCode: 'sv',
   stopWords: ['och', 'att', 'en', 'ett', 'det', 'den', 'de', 'som', 'av', 'på', 'i', 'för', 'till', 'med', 'om', 'är'],
-  characterReplacements: {},
+  // Release groups transliterate å/ä/ö two ways: plain strip (Lackberg) or
+  // German-style digraphs (Laeckberg, Sjoewall, Baagstam). Replacements run on
+  // BOTH the metadata and the release name before NFD stripping, so collapsing
+  // the digraphs makes every variant normalize to the same stripped form.
+  characterReplacements: { ae: 'a', oe: 'o', aa: 'a' },
   scraping: {
     audibleLocaleParam: 'schwedisch',
     authorPrefixes: ['Av:', 'Skriven av:', 'Författare:'],

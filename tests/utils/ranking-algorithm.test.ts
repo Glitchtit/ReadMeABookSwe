@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { RankingAlgorithm, rankTorrents } from '@/lib/utils/ranking-algorithm';
+import { LANGUAGE_CONFIGS } from '@/lib/constants/language-config';
 
 const MB = 1024 * 1024;
 
@@ -1426,6 +1427,81 @@ describe('ranking-algorithm', () => {
 
       expect(ranked).toHaveLength(1);
       expect(ranked[0].bonusModifiers.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Swedish releases (transliteration variants + scene naming)', () => {
+    const svOptions = {
+      requireAuthor: true,
+      stopWords: LANGUAGE_CONFIGS.sv.stopWords,
+      characterReplacements: LANGUAGE_CONFIGS.sv.characterReplacements,
+    };
+    const matchScoreOf = (title: string, audiobook: { title: string; author: string }) => {
+      const ranked = rankTorrents([{ ...baseTorrent, title }], audiobook, svOptions);
+      return ranked[0].breakdown.matchScore;
+    };
+
+    it('scores digraph transliteration in automatic mode (real-world case)', () => {
+      // Scene release: "Laeckberg" for "Läckberg" plus tight hyphen suffixes.
+      // Previously the author-presence gate rejected it outright (matchScore 0)
+      // and the tight "-AUDiOBOOK" suffix degraded the title to fuzzy scoring.
+      const matchScore = matchScoreOf(
+        'Camilla Laeckberg-Den Tystade Polisen-AUDiOBOOK-WEB-SE-2026-CRAViNGS iNT-FTP',
+        { title: 'Den tystade polisen', author: 'Camilla Läckberg, Anna Bågstam' }
+      );
+
+      // Full title (45) + one of two authors matched (7.5) — clears the
+      // 50-point auto-grab threshold on the match component alone.
+      expect(matchScore).toBeGreaterThanOrEqual(50);
+    });
+
+    it('scores digraph and plain-stripped spellings identically', () => {
+      const audiobook = { title: 'Den tystade polisen', author: 'Camilla Läckberg, Anna Bågstam' };
+      const digraph = matchScoreOf(
+        'Camilla Laeckberg-Den Tystade Polisen-AUDiOBOOK-WEB-SE-2026-CRAViNGS iNT-FTP',
+        audiobook
+      );
+      const stripped = matchScoreOf(
+        'Camilla Lackberg-Den Tystade Polisen-AUDiOBOOK-WEB-SE-2026-CRAViNGS iNT-FTP',
+        audiobook
+      );
+
+      expect(digraph).toBe(stripped);
+      expect(digraph).toBeGreaterThan(0);
+    });
+
+    it('collapses ö/oe and å/aa variants in author names', () => {
+      const oe = matchScoreOf(
+        'Maj Sjoewall - Roseanna (Svensk) 2026',
+        { title: 'Roseanna', author: 'Maj Sjöwall' }
+      );
+      const aa = matchScoreOf(
+        'Anna Baagstam - Roseanna (2026)',
+        { title: 'Roseanna', author: 'Anna Bågstam' }
+      );
+
+      // Complete title (45) + full author match (15)
+      expect(oe).toBe(60);
+      expect(aa).toBe(60);
+    });
+
+    it('still rejects wrong authors in automatic mode', () => {
+      const matchScore = matchScoreOf(
+        'Jens Lapidus - Den Tystade Polisen 2026',
+        { title: 'Den tystade polisen', author: 'Camilla Läckberg' }
+      );
+
+      expect(matchScore).toBe(0);
+    });
+
+    it('still degrades word continuations after the title to fuzzy scoring', () => {
+      // The tight-separator suffix acceptance must not validate partial titles
+      const matchScore = matchScoreOf(
+        'Elizabeth Bard - Roseanna Is Watching (2026)',
+        { title: 'Roseanna', author: 'Elizabeth Bard' }
+      );
+
+      expect(matchScore).toBeLessThan(45);
     });
   });
 });

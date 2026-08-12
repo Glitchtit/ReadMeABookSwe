@@ -52,6 +52,7 @@ Evaluates and scores torrents to automatically select best audiobook download.
 
 **Stage 1: Word Coverage Filter (MANDATORY)**
 - Extracts significant words from request (filters stop words; English defaults "the", "a", "an", "of", "on", "in", "at", "by", "for" — call sites pass language-specific stop words from `LanguageConfig`, e.g. Swedish "och", "att", "en", "ett")
+- **Language characterReplacements run on BOTH sides before NFD stripping** (words + titles + authors). Swedish collapses transliteration digraphs `ae→a`, `oe→o`, `aa→a`, so releases writing "Laeckberg"/"Sjoewall"/"Baagstam" match metadata "Läckberg"/"Sjöwall"/"Bågstam" the same as plain-stripped "Lackberg" (German keeps `ß→ss`)
 - **Parenthetical/bracketed content is optional**: Content in () [] {} treated as subtitle (may be omitted from torrents)
   - "We Are Legion (We Are Bob)" → Required: ["we", "are", "legion"], Optional: ["bob"]
   - "Title [Series Name]" → Required: ["title"], Optional: ["series", "name"]
@@ -96,7 +97,8 @@ Evaluates and scores torrents to automatically select best audiobook download.
     - No significant words before title (clean match)
     - Title preceded by metadata separator (` - `, `: `, `—`) — handles "Author - Series - 01 - Title"
     - Author name appears in prefix — handles "Author Name - Title"
-  - **Acceptable suffix**: Followed by metadata markers: " by", " [", " -", " (", " {", " :", "," or end of string
+  - **Acceptable suffix**: Followed by metadata markers: " by", " av", " [", " -", " (", " {", " :", "," or end of string
+    - Also accepts tight scene-style separators in the ORIGINAL title: `-`, `:`, `.` directly after the title (e.g. "Den Tystade Polisen-AUDiOBOOK-WEB-SE-2026") — mirrors the prefix check, which already accepts unspaced `-`/`:`
     - Also accepts author name in suffix (e.g., "Title AuthorName Year")
 - Complete match → 45 pts
 - Unstructured prefix (words without separators) → fuzzy similarity (partial credit)
