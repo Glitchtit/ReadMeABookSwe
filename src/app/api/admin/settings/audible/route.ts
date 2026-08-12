@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest) {
   return requireAuth(request, async (req: AuthenticatedRequest) => {
     return requireAdmin(req, async () => {
       try {
-        const { region } = await request.json();
+        const { region, storytelEnabled } = await request.json();
 
         // Validate region
         if (!region || !VALID_REGIONS.includes(region)) {
@@ -30,7 +30,7 @@ export async function PUT(request: NextRequest) {
           );
         }
 
-        // Save region to configuration
+        // Save region (and Storytel toggle, when provided) to configuration
         const configService = getConfigService();
         await configService.setMany([
           {
@@ -39,10 +39,19 @@ export async function PUT(request: NextRequest) {
             category: 'system',
             description: 'Audible region for metadata and search',
           },
+          ...(typeof storytelEnabled === 'boolean'
+            ? [{
+                key: 'storytel.enabled',
+                value: String(storytelEnabled),
+                category: 'system',
+                description: 'Merge Swedish results from Storytel into searches',
+              }]
+            : []),
         ]);
 
-        // Clear config cache to ensure new region is loaded immediately
+        // Clear config cache to ensure new values are loaded immediately
         configService.clearCache('audible.region');
+        configService.clearCache('storytel.enabled');
 
         // Force AudibleService to re-initialize with new region
         const audibleService = getAudibleService();

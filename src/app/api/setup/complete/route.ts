@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     const {
       backendMode,
       audibleRegion,
+      storytelEnabled,
       admin,
       plex,
       audiobookshelf,
@@ -187,6 +188,14 @@ export async function POST(request: NextRequest) {
       where: { key: 'audible.region' },
       update: { value: audibleRegion || 'us', category: 'system' },
       create: { key: 'audible.region', value: audibleRegion || 'us', category: 'system' },
+    });
+
+    // Save Storytel toggle (Swedish search results; default ON in this fork)
+    const storytelValue = String(storytelEnabled !== false);
+    await prisma.configuration.upsert({
+      where: { key: 'storytel.enabled' },
+      update: { value: storytelValue, category: 'system' },
+      create: { key: 'storytel.enabled', value: storytelValue, category: 'system' },
     });
 
     if (backendMode === 'plex') {

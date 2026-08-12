@@ -14,7 +14,7 @@ import { getProwlarrService } from '@/lib/integrations/prowlarr.service';
 import { rankEbookTorrents, RankedEbookTorrent } from '@/lib/utils/ranking-algorithm';
 import { groupIndexersByCategories, getGroupDescription } from '@/lib/utils/indexer-grouping';
 import { RMABLogger } from '@/lib/utils/logger';
-import { getLanguageForRegion } from '@/lib/constants/language-config';
+import { getLanguageForBook } from '@/lib/constants/language-config';
 import type { AudibleRegion } from '@/lib/types/audible';
 import {
   searchByAsin,
@@ -138,9 +138,9 @@ export async function POST(
         const format = preferredFormat || 'epub';
         const annasBaseUrl = baseUrl || 'https://annas-archive.gl';
 
-        // Get language code from Audible region config
+        // Get language code from Audible region config (Swedish for Storytel books)
         const region = await configService.getAudibleRegion() as AudibleRegion;
-        const langConfig = getLanguageForRegion(region);
+        const langConfig = getLanguageForBook(requestRecord.audiobook.audibleAsin, region);
         const languageCode = langConfig.annasArchiveLang;
 
         if (!isAnnasArchiveEnabled && !isIndexerSearchEnabled) {
@@ -181,7 +181,8 @@ export async function POST(
             searchIndexersForInteractive(
               searchTitle,
               audiobook.author,
-              format
+              format,
+              audiobook.audibleAsin || undefined
             ).catch((err) => {
               logger.error(`Indexer search failed: ${err.message}`);
               return null;
@@ -318,7 +319,8 @@ async function searchAnnasArchiveForInteractive(
 async function searchIndexersForInteractive(
   title: string,
   author: string,
-  preferredFormat: string
+  preferredFormat: string,
+  asin?: string
 ): Promise<EbookSearchResult[]> {
   const configService = getConfigService();
 
@@ -380,9 +382,9 @@ async function searchIndexersForInteractive(
     return [];
   }
 
-  // Get language-specific stop words for ranking
+  // Get language-specific stop words for ranking (Swedish for Storytel books)
   const rankRegion = await configService.getAudibleRegion() as AudibleRegion;
-  const rankLangConfig = getLanguageForRegion(rankRegion);
+  const rankLangConfig = getLanguageForBook(asin, rankRegion);
 
   // Rank results with ebook scoring
   // Use requireAuthor=false for interactive mode (let user decide)

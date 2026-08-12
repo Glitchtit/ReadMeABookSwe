@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   LANGUAGE_CONFIGS,
   REGION_LANGUAGE_MAP,
-  getLanguageForRegion,
+  getLanguageForBook,
   isAcceptedLanguage,
   stripPrefixes,
 } from '@/lib/constants/language-config';
@@ -38,42 +38,43 @@ describe('language-config exhaustiveness', () => {
   });
 });
 
-describe('Swedish (se region via audible.de)', () => {
+describe('Swedish (via Storytel)', () => {
   const sv = LANGUAGE_CONFIGS.sv;
 
-  it('resolves the se region to the Swedish config', () => {
-    expect(getLanguageForRegion('se')).toBe(sv);
+  it('has no Swedish Audible region — Swedish rides on the Storytel toggle', () => {
+    expect(Object.keys(AUDIBLE_REGIONS)).not.toContain('se');
+    expect(Object.keys(REGION_LANGUAGE_MAP)).not.toContain('se');
   });
 
-  it('uses the audible.de marketplace with catalog language filtering', () => {
-    const region = AUDIBLE_REGIONS.se;
-    expect(region.baseUrl).toBe('https://www.audible.de');
-    expect(region.apiBaseUrl).toBe('https://api.audible.de');
-    expect(region.audnexusParam).toBe('de');
-    expect(region.catalogLanguageFilter).toBe(true);
-  });
-
-  it('accepts the language values the Audible catalog API returns for Swedish titles', () => {
-    // The catalog API returns language: "swedish" (verified against api.audible.de)
+  it('accepts Swedish language values', () => {
     expect(isAcceptedLanguage('swedish', sv)).toBe(true);
     expect(isAcceptedLanguage('Svenska', sv)).toBe(true);
-    expect(isAcceptedLanguage('Schwedisch', sv)).toBe(true);
     expect(isAcceptedLanguage('german', sv)).toBe(false);
     expect(isAcceptedLanguage('english', sv)).toBe(false);
   });
 
-  it('parses runtimes in both German (page UI) and Swedish formats', () => {
-    // audible.de serves Swedish titles with German UI labels
-    expect(parseRuntime('9 Std. 12 Min.', sv)).toBe(552);
+  it('parses Swedish runtime formats', () => {
     expect(parseRuntime('9 tim 12 min', sv)).toBe(552);
     expect(parseRuntime('14 timmar', sv)).toBe(840);
     expect(parseRuntime('45 minuter', sv)).toBe(45);
   });
 
-  it('strips both German and Swedish author/narrator prefixes', () => {
-    expect(stripPrefixes('Von: Jonas Jonasson', sv.scraping.authorPrefixes)).toBe('Jonas Jonasson');
+  it('strips Swedish author/narrator prefixes', () => {
     expect(stripPrefixes('Av: Jonas Jonasson', sv.scraping.authorPrefixes)).toBe('Jonas Jonasson');
-    expect(stripPrefixes('Gesprochen von: Björn Granath', sv.scraping.narratorPrefixes)).toBe('Björn Granath');
     expect(stripPrefixes('Uppläsare: Björn Granath', sv.scraping.narratorPrefixes)).toBe('Björn Granath');
+  });
+});
+
+describe('getLanguageForBook', () => {
+  it('returns Swedish for Storytel pseudo-ASINs regardless of region', () => {
+    expect(getLanguageForBook('ST00001282', 'us')).toBe(LANGUAGE_CONFIGS.sv);
+    expect(getLanguageForBook('ST00001282', 'de')).toBe(LANGUAGE_CONFIGS.sv);
+  });
+
+  it('falls back to the region language for real ASINs and missing ASINs', () => {
+    expect(getLanguageForBook('B08G9PRS1K', 'us')).toBe(LANGUAGE_CONFIGS.en);
+    expect(getLanguageForBook('B08G9PRS1K', 'de')).toBe(LANGUAGE_CONFIGS.de);
+    expect(getLanguageForBook(undefined, 'us')).toBe(LANGUAGE_CONFIGS.en);
+    expect(getLanguageForBook(null, 'fr')).toBe(LANGUAGE_CONFIGS.fr);
   });
 });

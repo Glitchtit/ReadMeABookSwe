@@ -42,6 +42,7 @@ interface SetupState {
   // Backend selection
   backendMode: 'plex' | 'audiobookshelf';
   audibleRegion: AudibleRegion;
+  storytelEnabled: boolean;
 
   // Admin account (for Plex mode and ABS + Manual mode)
   adminUsername: string;
@@ -117,6 +118,7 @@ export default function SetupWizard() {
     // Backend selection
     backendMode: 'plex',
     audibleRegion: 'us',
+    storytelEnabled: true,
 
     // Admin account
     adminUsername: 'admin',
@@ -229,6 +231,7 @@ export default function SetupWizard() {
       const payload: any = {
         backendMode: state.backendMode,
         audibleRegion: state.audibleRegion,
+        storytelEnabled: state.storytelEnabled,
         prowlarr: {
           url: state.prowlarrUrl,
           api_key: state.prowlarrApiKey,
@@ -371,6 +374,8 @@ export default function SetupWizard() {
           onChange={(value) => updateField('backendMode', value)}
           audibleRegion={state.audibleRegion}
           onAudibleRegionChange={(region) => updateField('audibleRegion', region)}
+          storytelEnabled={state.storytelEnabled}
+          onStorytelEnabledChange={(enabled) => updateField('storytelEnabled', enabled)}
           onNext={() => goToStep(currentStepNumber + 1)}
           onBack={() => goToStep(currentStepNumber - 1)}
         />

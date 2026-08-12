@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db';
 import { getProwlarrService } from '@/lib/integrations/prowlarr.service';
 import { rankTorrents } from '@/lib/utils/ranking-algorithm';
 import { groupIndexersByCategories, getGroupDescription } from '@/lib/utils/indexer-grouping';
-import { getLanguageForRegion } from '@/lib/constants/language-config';
+import { getLanguageForBook } from '@/lib/constants/language-config';
 import type { AudibleRegion } from '@/lib/types/audible';
 import { RMABLogger } from '@/lib/utils/logger';
 import { resolveInteractiveSearchAccess } from '@/lib/utils/permissions';
@@ -191,9 +191,9 @@ export async function POST(
         }
       }
 
-      // Get language-specific stop words for ranking
+      // Get language-specific stop words for ranking (Swedish for Storytel books)
       const region = await configService.getAudibleRegion() as AudibleRegion;
-      const langConfig = getLanguageForRegion(region);
+      const langConfig = getLanguageForBook(requestRecord.audiobook.audibleAsin, region);
 
       // Rank torrents using the ranking algorithm with indexer priorities and flag configs
       // Use searchTitle for ranking so custom search terms and search bar overrides are respected

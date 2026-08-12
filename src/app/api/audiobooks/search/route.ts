@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAudibleService, type AudibleAudiobook } from '@/lib/integrations/audible.service';
 import { getStorytelService } from '@/lib/integrations/storytel.service';
+import { getConfigService } from '@/lib/services/config.service';
 import { enrichAudiobooksWithMatches } from '@/lib/utils/audiobook-matcher';
 import { deduplicateAndCollectGroups } from '@/lib/utils/deduplicate-audiobooks';
 import { persistDedupGroups, collapseByExistingWorks } from '@/lib/services/works.service';
@@ -38,12 +39,12 @@ export async function GET(request: NextRequest) {
     const audibleService = getAudibleService();
     const results = await audibleService.search(query, page);
 
-    // Sweden region: supplement audible.de results with Storytel, which has
-    // far better Swedish coverage. Storytel's API has no pagination, so its
+    // Swedish support: supplement Audible results with Storytel, which
+    // carries the Swedish catalog. Storytel's API has no pagination, so its
     // results are appended on page 1 only; duplicates (same title+author on
     // both stores) keep the Audible entry, which carries a real ASIN.
     let combinedResults: AudibleAudiobook[] = results.results;
-    if (audibleService.getRegion() === 'se' && page === 1) {
+    if ((await getConfigService().isStorytelEnabled()) && page === 1) {
       const storytelResults = await getStorytelService().search(query);
       if (storytelResults.length > 0) {
         const normKey = (b: AudibleAudiobook) =>

@@ -11,6 +11,7 @@
  */
 
 import type { AudibleRegion } from '../types/audible';
+import { isStorytelAsin } from '../utils/storytel-ids';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -203,10 +204,10 @@ const FRENCH_CONFIG: LanguageConfig = {
 };
 
 /**
- * Swedish is served through the audible.de marketplace (no audible.se exists),
- * so scraped pages render with GERMAN UI labels while the content itself is
- * Swedish. Scraping labels therefore include both German and Swedish variants;
- * matching config (stop words, accepted language values) is Swedish.
+ * Swedish content comes exclusively from Storytel (JSON API, no HTML
+ * scraping), so the scraping config exists only to satisfy the LanguageConfig
+ * shape. Matching config (stop words, Anna's Archive language) is what the
+ * pipeline actually uses — via getLanguageForBook() for Storytel pseudo-ASINs.
  */
 const SWEDISH_CONFIG: LanguageConfig = {
   code: 'sv',
@@ -216,33 +217,28 @@ const SWEDISH_CONFIG: LanguageConfig = {
   characterReplacements: {},
   scraping: {
     audibleLocaleParam: 'schwedisch',
-    authorPrefixes: ['Von:', 'Geschrieben von:', 'Autor:', 'Av:', 'Skriven av:', 'Författare:'],
-    narratorPrefixes: ['Gesprochen von:', 'Sprecher:', 'Uppläsare:', 'Uppläst av:', 'Inläst av:'],
-    lengthLabels: ['Spieldauer:', 'Dauer:', 'Länge:', 'Speltid:', 'Längd:'],
-    languageLabels: ['Sprache:', 'Språk:'],
-    releaseDateLabels: ['Erscheinungsdatum:', 'Utgivningsdatum:'],
-    seriesLabels: ['Serie:', 'Reihe:'],
+    authorPrefixes: ['Av:', 'Skriven av:', 'Författare:'],
+    narratorPrefixes: ['Uppläsare:', 'Uppläst av:', 'Inläst av:'],
+    lengthLabels: ['Speltid:', 'Längd:'],
+    languageLabels: ['Språk:'],
+    releaseDateLabels: ['Utgivningsdatum:'],
+    seriesLabels: ['Serie:'],
     acceptedLanguageValues: ['svenska', 'swedish', 'schwedisch'],
-    runtimeHourPatterns: [/(\d+)\s*Std\.?/i, /(\d+)\s*Stunden?/i, /(\d+)\s*tim(?:mar|me)?\b\.?/i, /(\d+)\s*h\b/i],
-    runtimeMinutePatterns: [/(\d+)\s*Min\.?/i, /(\d+)\s*Minuten?/i, /(\d+)\s*minuter?/i],
-    ratingPatterns: [/(\d+[.,]?\d*)\s*von\s*5/i, /(\d+[.,]?\d*)\s*av\s*5/i],
-    releaseDatePatterns: [/Erscheinungsdatum:\s*(.+)/i, /Utgivningsdatum:\s*(.+)/i],
+    runtimeHourPatterns: [/(\d+)\s*tim(?:mar|me)?\b\.?/i, /(\d+)\s*h\b/i],
+    runtimeMinutePatterns: [/(\d+)\s*minuter?/i, /(\d+)\s*min\b\.?/i],
+    ratingPatterns: [/(\d+[.,]?\d*)\s*av\s*5/i],
+    releaseDatePatterns: [/Utgivningsdatum:\s*(.+)/i],
     descriptionExcludePatterns: [
       /\$\d+\.\d+/,
       /\d+,\d+\s*€/,
-      /jederzeit kündbar/i,
-      /kostenlos testen/i,
-      /Mitgliedschaft/i,
-      /abonnieren/i,
-      /Angebot.*endet/i,
       /avsluta när du vill/i,
       /prova gratis/i,
       /medlemskap/i,
       /prenumerera/i,
-      /^\s*(von|av)\s+[\w\s,]+$/i,
+      /^\s*av\s+[\w\s,]+$/i,
     ],
-    durationDetectionPattern: /\d+\s*(Std|Stunden?|tim|timmar?|h)\s*\.?\s*\d*\s*(Min|Minuten?|minuter?|m)?/i,
-    ratingTextSelector: 'von 5 Sternen',
+    durationDetectionPattern: /\d+\s*(tim|timmar?|h)\s*\.?\s*\d*\s*(min|minuter?|m)?/i,
+    ratingTextSelector: 'av 5',
   },
 };
 
@@ -271,7 +267,6 @@ export const REGION_LANGUAGE_MAP: Record<AudibleRegion, SupportedLanguage> = {
   de: 'de',
   es: 'es',
   fr: 'fr',
-  se: 'sv',
 };
 
 // ---------------------------------------------------------------------------
@@ -284,6 +279,22 @@ export const REGION_LANGUAGE_MAP: Record<AudibleRegion, SupportedLanguage> = {
 export function getLanguageForRegion(region: AudibleRegion): LanguageConfig {
   const langCode = REGION_LANGUAGE_MAP[region];
   return LANGUAGE_CONFIGS[langCode];
+}
+
+/**
+ * Language configuration for a specific book. Storytel pseudo-ASINs are
+ * always Swedish regardless of the configured Audible region; everything
+ * else follows the region's language. Use this wherever ranking or ebook
+ * search needs stop words / language codes for a known book.
+ */
+export function getLanguageForBook(
+  asin: string | null | undefined,
+  region: AudibleRegion,
+): LanguageConfig {
+  if (isStorytelAsin(asin)) {
+    return LANGUAGE_CONFIGS.sv;
+  }
+  return getLanguageForRegion(region);
 }
 
 /**

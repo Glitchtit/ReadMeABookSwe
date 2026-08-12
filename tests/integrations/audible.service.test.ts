@@ -1433,112 +1433,20 @@ describe('AudibleService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Sweden (se) region — audible.de marketplace with Swedish language filter
+  // Region fallback — legacy/invalid stored regions must not break the service
   // -------------------------------------------------------------------------
 
-  describe('Sweden (se) region', () => {
-    beforeEach(() => {
-      configServiceMock.getAudibleRegion.mockResolvedValue('se');
-    });
-
-    it('initializes clients against audible.de with the schwedisch language param', async () => {
+  describe('legacy region values', () => {
+    it('initializes against the default region when config returns an unknown region', async () => {
+      // Simulates configService already normalizing a removed value like 'se'.
+      configServiceMock.getAudibleRegion.mockResolvedValue('us');
       apiClientMock.get.mockResolvedValue(apiResponse(makeProductsResponse([])));
 
       const service = new AudibleService();
       await service.search('test', 1);
 
-      expect(axiosMock.create.mock.calls[0][0].baseURL).toBe('https://www.audible.de');
-      expect(axiosMock.create.mock.calls[0][0].params.language).toBe('schwedisch');
-      expect(axiosMock.create.mock.calls[1][0].baseURL).toBe('https://api.audible.de');
-    });
-
-    it('filters search results to Swedish titles, scanning past pages of translations', async () => {
-      // Page 0: 50 raw products, only 2 Swedish (German translations dominate).
-      const page0 = makeProductsResponse(
-        [
-          ...Array.from({ length: 48 }, (_, i) =>
-            makeProduct({ asin: `B0000000G${String(i).padStart(2, '0')}`, language: 'german' }),
-          ),
-          makeProduct({ asin: 'B0000000S01', title: 'Svensk Bok 1', language: 'swedish' }),
-          makeProduct({ asin: 'B0000000S02', title: 'Svensk Bok 2', language: 'swedish' }),
-        ],
-        80,
-      );
-      // Page 1: 30 raw products (< page size, so the scan ends), 1 Swedish.
-      const page1 = makeProductsResponse(
-        [
-          ...Array.from({ length: 29 }, (_, i) =>
-            makeProduct({ asin: `B0000001G${String(i).padStart(2, '0')}`, language: 'english' }),
-          ),
-          makeProduct({ asin: 'B0000000S03', title: 'Svensk Bok 3', language: 'swedish' }),
-        ],
-        80,
-      );
-      apiClientMock.get
-        .mockResolvedValueOnce(apiResponse(page0))
-        .mockResolvedValueOnce(apiResponse(page1));
-
-      const service = new AudibleService();
-      const result = await service.search('svensk bok', 1);
-
-      expect(apiClientMock.get).toHaveBeenCalledTimes(2);
-      expect(result.results.map((r) => r.asin)).toEqual([
-        'B0000000S01',
-        'B0000000S02',
-        'B0000000S03',
-      ]);
-      expect(result.results.every((r) => r.language === 'swedish')).toBe(true);
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('returns no results (not translations) when nothing Swedish matches', async () => {
-      const onlyGerman = makeProductsResponse(
-        Array.from({ length: 10 }, (_, i) =>
-          makeProduct({ asin: `B0000002G${String(i).padStart(2, '0')}`, language: 'german' }),
-        ),
-        10,
-      );
-      apiClientMock.get.mockResolvedValue(apiResponse(onlyGerman));
-
-      const service = new AudibleService();
-      const result = await service.search('nur deutsch', 1);
-
-      expect(result.results).toEqual([]);
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('fetches popular audiobooks via /search sorted by popularity instead of /adblbestsellers', async () => {
-      htmlClientMock.get.mockResolvedValue(
-        htmlResponse(makeHtmlPage([makeSearchResultItemHtml({ asin: 'B0000000S01' })])),
-      );
-
-      const service = new AudibleService();
-      const books = await service.getPopularAudiobooks(5);
-
-      expect(htmlClientMock.get).toHaveBeenCalledWith(
-        '/search',
-        expect.objectContaining({
-          params: expect.objectContaining({ sort: 'popularity-rank' }),
-        }),
-      );
-      expect(books.map((b) => b.asin)).toEqual(['B0000000S01']);
-    });
-
-    it('fetches new releases via /search sorted by publication date instead of /newreleases', async () => {
-      htmlClientMock.get.mockResolvedValue(
-        htmlResponse(makeHtmlPage([makeSearchResultItemHtml({ asin: 'B0000000S02' })])),
-      );
-
-      const service = new AudibleService();
-      const books = await service.getNewReleases(5);
-
-      expect(htmlClientMock.get).toHaveBeenCalledWith(
-        '/search',
-        expect.objectContaining({
-          params: expect.objectContaining({ sort: 'pubdate-desc-rank' }),
-        }),
-      );
-      expect(books.map((b) => b.asin)).toEqual(['B0000000S02']);
+      expect(axiosMock.create.mock.calls[0][0].baseURL).toBe('https://www.audible.com');
+      expect(axiosMock.create.mock.calls[1][0].baseURL).toBe('https://api.audible.com');
     });
   });
 });

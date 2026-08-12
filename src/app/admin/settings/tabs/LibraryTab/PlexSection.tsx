@@ -65,6 +65,13 @@ export function PlexSection({
     });
   };
 
+  const handleStorytelEnabledChange = (storytelEnabled: boolean) => {
+    onChange({
+      ...settings,
+      storytelEnabled,
+    });
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -164,11 +171,11 @@ export function PlexSection({
         >
           {Object.values(AUDIBLE_REGIONS).map((region) => (
             <option key={region.code} value={region.code}>
-              {region.name}{region.language !== 'en' && region.language !== 'sv' ? ' *' : ''}
+              {region.name}{region.language !== 'en' ? ' *' : ''}
             </option>
           ))}
         </select>
-        {AUDIBLE_REGIONS[settings.audibleRegion as keyof typeof AUDIBLE_REGIONS]?.language !== 'en' && AUDIBLE_REGIONS[settings.audibleRegion as keyof typeof AUDIBLE_REGIONS]?.language !== 'sv' && (
+        {AUDIBLE_REGIONS[settings.audibleRegion as keyof typeof AUDIBLE_REGIONS]?.language !== 'en' && (
           <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800 mt-2">
             <div className="flex gap-3">
               <svg
@@ -199,6 +206,25 @@ export function PlexSection({
           Select the Audible region that matches your metadata engine (Audnexus/Audible Agent)
           configuration in Plex. This ensures accurate book matching and metadata.
         </p>
+
+        <label className="flex items-start gap-3 cursor-pointer pt-4">
+          <input
+            type="checkbox"
+            checked={settings.storytelEnabled}
+            onChange={(e) => handleStorytelEnabledChange(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+          />
+          <div className="flex-1">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Include Swedish results (Storytel)
+            </span>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Merges Swedish audiobooks from Storytel into search results alongside the Audible
+              region above, so users can request books in both languages. Disable if your users
+              only read in English.
+            </p>
+          </div>
+        </label>
       </div>
 
       <div className="border-t border-gray-200 dark:border-gray-700 pt-6">

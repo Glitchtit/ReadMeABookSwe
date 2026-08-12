@@ -9,7 +9,7 @@ import { getProwlarrService } from '../integrations/prowlarr.service';
 import { getRankingAlgorithm } from '../utils/ranking-algorithm';
 import { groupIndexersByCategories, getGroupDescription } from '../utils/indexer-grouping';
 import { RMABLogger } from '../utils/logger';
-import { getLanguageForRegion } from '../constants/language-config';
+import { getLanguageForBook } from '../constants/language-config';
 import { filterBlockedResults } from '../utils/filter-blocked-results';
 import { isStorytelAsin } from '../utils/storytel-ids';
 import type { AudibleRegion } from '../types/audible';
@@ -181,10 +181,11 @@ export async function processSearchIndexers(payload: SearchIndexersPayload): Pro
       logger.info(`Will filter ${belowThreshold.length} results < ${sizeMBThreshold} MB (likely ebooks)`);
     }
 
-    // Get ranking algorithm and language-specific stop words
+    // Get ranking algorithm and language-specific stop words (Storytel books
+    // are Swedish regardless of the configured Audible region)
     const ranker = getRankingAlgorithm();
     const region = await configService.getAudibleRegion() as AudibleRegion;
-    const langConfig = getLanguageForRegion(region);
+    const langConfig = getLanguageForBook(audiobook.asin, region);
 
     // Rank results with indexer priorities and flag configs
     // Note: rankTorrents now filters out results < 20 MB internally

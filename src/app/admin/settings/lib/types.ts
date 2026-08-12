@@ -11,6 +11,8 @@ export interface Settings {
   hasLocalUsers: boolean;
   hasLocalAdmins: boolean;
   audibleRegion: string;
+  /** Merge Swedish results from Storytel into searches (this fork). */
+  storytelEnabled: boolean;
   plex: PlexSettings;
   audiobookshelf: AudiobookshelfSettings;
   oidc: OIDCSettings;

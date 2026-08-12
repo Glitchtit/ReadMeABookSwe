@@ -6,7 +6,7 @@
 import { prisma } from '@/lib/db';
 import { getEncryptionService } from './encryption.service';
 import { RMABLogger } from '@/lib/utils/logger';
-import { AudibleRegion, DEFAULT_AUDIBLE_REGION } from '@/lib/types/audible';
+import { AudibleRegion, AUDIBLE_REGIONS, DEFAULT_AUDIBLE_REGION } from '@/lib/types/audible';
 
 const logger = RMABLogger.create('Config');
 
@@ -234,7 +234,20 @@ export class ConfigurationService {
    */
   async getAudibleRegion(): Promise<AudibleRegion> {
     const region = await this.get('audible.region');
-    return (region as AudibleRegion) || DEFAULT_AUDIBLE_REGION;
+    // Guard against stored values that are no longer valid regions (e.g. the
+    // removed 'se' pseudo-region — Swedish now comes from Storytel instead).
+    if (region && region in AUDIBLE_REGIONS) {
+      return region as AudibleRegion;
+    }
+    return DEFAULT_AUDIBLE_REGION;
+  }
+
+  /**
+   * Whether Swedish search results from Storytel are merged into searches.
+   * Default ON in this fork; disable with storytel.enabled = 'false'.
+   */
+  async isStorytelEnabled(): Promise<boolean> {
+    return (await this.get('storytel.enabled')) !== 'false';
   }
 
   /**

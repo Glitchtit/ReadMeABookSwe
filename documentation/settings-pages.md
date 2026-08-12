@@ -155,7 +155,8 @@ src/app/admin/settings/
 
 **Configuration:**
 - Key: `audible.region` (string, default: 'us')
-- Supported regions: US, Canada, UK, Australia, India, Germany, Spain, France, Sweden (via audible.de)
+- Supported regions: US, Canada, UK, Australia, India, Germany, Spain, France
+- "Include Swedish results (Storytel)" checkbox below the region select (key `storytel.enabled`, default ON) — merges Storytel Swedish results into searches alongside the region
 - UI: Dropdown selector in Library tab (both Plex and Audiobookshelf settings)
 - No validation required (immediate save)
 
@@ -311,7 +312,7 @@ src/app/admin/settings/
 
 **PUT /api/admin/settings/audible**
 - Updates Audible region
-- Body: `{ region: string }` (one of: us, ca, uk, au, in, de, es, fr, se)
+- Body: `{ region: string, storytelEnabled?: boolean }` (region one of: us, ca, uk, au, in, de, es, fr)
 - No validation required
 
 **PUT /api/admin/settings/prowlarr/indexers**

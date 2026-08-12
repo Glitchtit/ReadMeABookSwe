@@ -17,11 +17,18 @@ const storytelServiceMock = vi.hoisted(() => ({
   search: vi.fn(),
   getBookDetails: vi.fn(),
 }));
+const configServiceMock = vi.hoisted(() => ({
+  isStorytelEnabled: vi.fn(),
+}));
 const enrichMock = vi.hoisted(() => vi.fn());
 const currentUserMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/db', () => ({
   prisma: prismaMock,
+}));
+
+vi.mock('@/lib/services/config.service', () => ({
+  getConfigService: () => configServiceMock,
 }));
 
 vi.mock('@/lib/integrations/audible.service', () => ({
@@ -55,9 +62,10 @@ describe('Audiobooks browse routes', () => {
     currentUserMock.mockReturnValue(null);
     audibleServiceMock.getRegion.mockReturnValue('us');
     storytelServiceMock.search.mockResolvedValue([]);
+    configServiceMock.isStorytelEnabled.mockResolvedValue(false);
   });
 
-  it('searches Audible and enriches results', async () => {
+  it('searches Audible and enriches results (Storytel toggle off)', async () => {
     audibleServiceMock.search.mockResolvedValue({
       query: 'query',
       results: [{ asin: 'ASIN', title: 'Title', author: 'Author' }],
@@ -77,8 +85,8 @@ describe('Audiobooks browse routes', () => {
     expect(storytelServiceMock.search).not.toHaveBeenCalled();
   });
 
-  it('merges Storytel results for the se region, keeping Audible entries on duplicates', async () => {
-    audibleServiceMock.getRegion.mockReturnValue('se');
+  it('merges Storytel results when the toggle is on, keeping Audible entries on duplicates', async () => {
+    configServiceMock.isStorytelEnabled.mockResolvedValue(true);
     audibleServiceMock.search.mockResolvedValue({
       query: 'query',
       results: [{ asin: 'B000000001', title: 'Svensk Bok', author: 'Författaren' }],

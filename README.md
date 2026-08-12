@@ -26,15 +26,14 @@
 
 ## About this fork (ReadMeABookSwe)
 
-This is a fork of [kikootwo/ReadMeABook](https://github.com/kikootwo/ReadMeABook) with first-class support for **Swedish-language audiobooks**:
+This is a fork of [kikootwo/ReadMeABook](https://github.com/kikootwo/ReadMeABook) with first-class support for **Swedish-language audiobooks alongside English**:
 
-- New **Sweden (Svenska)** Audible region in the setup wizard and admin settings. There is no audible.se marketplace (it redirects to audible.de), so the region uses the audible.de catalog filtered to Swedish-language titles.
-- **Storytel as a supplementary metadata source**: searches in the Sweden region also query Storytel's catalog, which carries most Swedish audiobooks that never reach Audible (Läckberg, and most of Swedish publishing). Storytel books can be requested, downloaded, organized, and matched into your library like any other.
-- Search, popular, and new-release discovery return Swedish audiobooks only.
-- Swedish metadata scraping (authors, narrators, runtimes, ratings) and Swedish-aware torrent/NZB matching (stop words, "av"-style release naming, Swedish role words like *uppläsare*).
-- E-book sidecar searches use the Swedish (`sv`) language filter.
+- **English and Swedish at the same time**: pick any Audible region for English content, and Swedish results are merged in from Storytel — no need to choose one language.
+- **Storytel as the Swedish metadata source**: Storytel's catalog carries most Swedish audiobooks that never reach Audible (Läckberg, and most of Swedish publishing). Storytel books can be requested, downloaded, organized, and matched into your library like any other. Enabled by default; toggle "Include Swedish results (Storytel)" in the setup wizard or Library settings.
+- Swedish-aware torrent/NZB matching for Storytel requests (Swedish stop words, "av"-style release naming, role words like *uppläsare*), while English requests rank with English rules.
+- E-book sidecar searches use the Swedish (`sv`) language filter for Storytel books.
 
-Select **Sweden (Svenska)** as the Audible region during setup to enable it.
+Note: home-page popular/new-release sections come from Audible (English); Swedish books are found via search.
 
 ## What is this?
 

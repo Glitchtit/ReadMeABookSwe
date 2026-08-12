@@ -18,9 +18,6 @@ const logger = RMABLogger.create('Audiobookshelf');
  */
 function mapRegionToABSProvider(region: AudibleRegion): string {
   // US uses 'audible' (audible.com), all others use 'audible.{region}'.
-  // Sweden has no marketplace of its own — Audiobookshelf has no 'audible.se'
-  // provider, and Swedish titles live in the audible.de catalog.
-  if (region === 'se') return 'audible.de';
   return region === 'us' ? 'audible' : `audible.${region}`;
 }
 

@@ -14,7 +14,7 @@ import { RMABLogger } from '../utils/logger';
 import { getProwlarrService } from '../integrations/prowlarr.service';
 import { rankEbookTorrents, RankedEbookTorrent } from '../utils/ranking-algorithm';
 import { groupIndexersByCategories, getGroupDescription } from '../utils/indexer-grouping';
-import { getLanguageForRegion } from '../constants/language-config';
+import { getLanguageForBook } from '../constants/language-config';
 import { filterBlockedResults } from '../utils/filter-blocked-results';
 import type { AudibleRegion } from '../types/audible';
 
@@ -163,9 +163,9 @@ async function searchAnnasArchive(
   const baseUrl = await configService.get('ebook_sidecar_base_url') || 'https://annas-archive.gl';
   const flaresolverrUrl = await configService.get('ebook_sidecar_flaresolverr_url') || undefined;
 
-  // Get language code from Audible region config
+  // Get language code from Audible region config (Swedish for Storytel books)
   const region = await configService.getAudibleRegion() as AudibleRegion;
-  const langConfig = getLanguageForRegion(region);
+  const langConfig = getLanguageForBook(audiobook.asin, region);
   const languageCode = langConfig.annasArchiveLang;
 
   if (flaresolverrUrl) {
@@ -229,7 +229,7 @@ async function searchAnnasArchive(
  */
 async function searchIndexers(
   requestId: string,
-  audiobook: { title: string; author: string },
+  audiobook: { title: string; author: string; asin?: string },
   preferredFormat: string,
   logger: RMABLogger
 ): Promise<RankedEbookTorrent | null> {
@@ -329,9 +329,9 @@ async function searchIndexers(
     logger.info(`Will filter ${aboveThreshold.length} results > 20 MB (too large for ebooks)`);
   }
 
-  // Get language-specific stop words for ranking
+  // Get language-specific stop words for ranking (Swedish for Storytel books)
   const ebookRegion = await configService.getAudibleRegion() as AudibleRegion;
-  const ebookLangConfig = getLanguageForRegion(ebookRegion);
+  const ebookLangConfig = getLanguageForBook(audiobook.asin, ebookRegion);
 
   // Rank results with ebook-specific scoring
   // This filters out > 20MB and uses inverted size scoring

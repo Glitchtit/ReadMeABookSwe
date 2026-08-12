@@ -91,6 +91,36 @@ describe('ConfigurationService', () => {
     expect(region).toBe(DEFAULT_AUDIBLE_REGION);
   });
 
+  it('falls back to the default region for legacy/invalid stored regions (e.g. removed se)', async () => {
+    prismaMock.configuration.findUnique.mockResolvedValue({
+      key: 'audible.region',
+      value: 'se',
+      encrypted: false,
+    });
+
+    const { ConfigurationService } = await import('@/lib/services/config.service');
+    const service = new ConfigurationService();
+    const region = await service.getAudibleRegion();
+
+    expect(region).toBe(DEFAULT_AUDIBLE_REGION);
+  });
+
+  it('defaults Storytel to enabled and honors an explicit false', async () => {
+    prismaMock.configuration.findUnique.mockResolvedValue(null);
+
+    const { ConfigurationService } = await import('@/lib/services/config.service');
+    const service = new ConfigurationService();
+    expect(await service.isStorytelEnabled()).toBe(true);
+
+    prismaMock.configuration.findUnique.mockResolvedValue({
+      key: 'storytel.enabled',
+      value: 'false',
+      encrypted: false,
+    });
+    const service2 = new ConfigurationService();
+    expect(await service2.isStorytelEnabled()).toBe(false);
+  });
+
   it('returns decrypted values for a category', async () => {
     prismaMock.configuration.findMany.mockResolvedValue([
       {

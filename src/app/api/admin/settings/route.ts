@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
       hasLocalUsers,
       hasLocalAdmins,
       audibleRegion: configMap.get('audible.region') || 'us',
+      // Default ON in this fork: missing or any value other than 'false' is enabled.
+      storytelEnabled: configMap.get('storytel.enabled') !== 'false',
       plex: {
         url: configMap.get('plex_url') || '',
         token: maskValue('token', configMap.get('plex_token')),
