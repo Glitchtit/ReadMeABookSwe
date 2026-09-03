@@ -5,7 +5,10 @@
 
 'use client';
 
+import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
 interface UserPermissionsUser {
@@ -14,6 +17,7 @@ interface UserPermissionsUser {
   plexEmail: string;
   avatarUrl: string | null;
   role: 'user' | 'admin';
+  authProvider: string | null;
   autoApproveRequests: boolean | null;
   interactiveSearchAccess: boolean | null;
   downloadAccess: boolean | null;
@@ -32,6 +36,8 @@ interface UserPermissionsModalProps {
   onToggleInteractiveSearch: (user: UserPermissionsUser, newValue: boolean) => void;
   onToggleDownloadAccess: (user: UserPermissionsUser, newValue: boolean) => void;
   onToggleToken: (user: UserPermissionsUser, newValue: boolean) => void;
+  /** Returns true on success so the form can clear itself */
+  onResetPassword: (user: UserPermissionsUser, newPassword: string) => Promise<boolean>;
 }
 
 interface PermissionToggleProps {
@@ -160,6 +166,80 @@ function LoginTokenRow({ value, generatedToken, onToggle }: LoginTokenRowProps) 
   );
 }
 
+interface ResetPasswordRowProps {
+  onSubmit: (newPassword: string) => Promise<boolean>;
+}
+
+function ResetPasswordRow({ onSubmit }: ResetPasswordRowProps) {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!newPassword) {
+      setError('New password is required');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      const ok = await onSubmit(newPassword);
+      if (ok) {
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div>
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          Reset Password
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Set a new password for this user. Their existing sessions will be logged out.
+        </p>
+      </div>
+      <Input
+        type="password"
+        label="New Password"
+        value={newPassword}
+        onChange={(e) => {
+          setNewPassword(e.target.value);
+          setError('');
+        }}
+        autoComplete="new-password"
+        disabled={submitting}
+      />
+      <Input
+        type="password"
+        label="Confirm New Password"
+        value={confirmPassword}
+        onChange={(e) => {
+          setConfirmPassword(e.target.value);
+          setError('');
+        }}
+        autoComplete="new-password"
+        error={error || undefined}
+        disabled={submitting}
+      />
+      <div className="flex justify-end">
+        <Button type="button" size="sm" onClick={handleSubmit} loading={submitting} disabled={submitting}>
+          Reset Password
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function UserPermissionsModal({
   isOpen,
   onClose,
@@ -172,6 +252,7 @@ export function UserPermissionsModal({
   onToggleInteractiveSearch,
   onToggleDownloadAccess,
   onToggleToken,
+  onResetPassword,
 }: UserPermissionsModalProps) {
   if (!user) return null;
 
@@ -289,6 +370,19 @@ export function UserPermissionsModal({
             />
           </div>
         </div>
+
+        {/* Password Reset (local users only) */}
+        {user.authProvider === 'local' && (
+          <div>
+            <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+              Password
+            </h3>
+            <ResetPasswordRow
+              key={user.id}
+              onSubmit={(newPassword) => onResetPassword(user, newPassword)}
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );

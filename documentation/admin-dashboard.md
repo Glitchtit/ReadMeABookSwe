@@ -50,6 +50,10 @@ Comprehensive overview of system metrics, active requests, download monitoring, 
 - Update user role (user/admin), autoApproveRequests (true/false/null)
 - Prevents self-demotion
 
+**POST /api/admin/users/[id]/password**
+- Admin sets new password for a local user (`{ newPassword }`), invalidates their sessions
+- See [backend/services/auth.md](backend/services/auth.md) → Admin Password Reset
+
 **GET /api/admin/settings/auto-approve**
 - Get global auto-approve setting (boolean)
 

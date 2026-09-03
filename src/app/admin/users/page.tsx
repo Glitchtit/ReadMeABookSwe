@@ -383,6 +383,21 @@ function AdminUsersPageContent() {
     }
   };
 
+  const handleResetPassword = async (user: { id: string; plexUsername: string }, newPassword: string): Promise<boolean> => {
+    try {
+      await fetchJSON(`/api/admin/users/${user.id}/password`, {
+        method: 'POST',
+        body: JSON.stringify({ newPassword }),
+      });
+      toast.success(`Password reset for ${user.plexUsername}`);
+      return true;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to reset password';
+      toast.error(errorMsg);
+      return false;
+    }
+  };
+
   const showEditDialog = (user: User) => {
     setEditRole(user.role);
     setEditDialog({ isOpen: true, user });
@@ -1009,6 +1024,7 @@ function AdminUsersPageContent() {
           onToggleToken={(user, newValue) => {
             handleToggleToken(user, newValue);
           }}
+          onResetPassword={handleResetPassword}
         />
       </div>
     </div>

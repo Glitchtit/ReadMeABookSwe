@@ -117,6 +117,14 @@ Handles authentication and authorization: Multiple auth providers (Plex OAuth, O
 - Properly decrypts stored password hash before bcrypt comparison
 - Available to all local users (setup admin, locally registered users)
 
+**Admin Password Reset:**
+- POST `/api/admin/users/[id]/password` with `{ newPassword }` (admin only)
+- Target must be `authProvider='local'` and not soft-deleted (403 otherwise); 404 if missing
+- No current-password check; same min-8-chars rule (`ALLOW_WEAK_PASSWORD=true` bypasses)
+- Stores bcrypt hash (encrypted) in `authToken`, sets `sessionsInvalidatedAt` (logs target user out)
+- UI: "Password" section in user permissions modal (`/admin/users`), shown for local users only
+- Route: `src/app/api/admin/users/[id]/password/route.ts`
+
 ## Plex Home Profile Support
 
 **Overview:**
